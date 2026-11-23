@@ -94,7 +94,12 @@ func run(args []string, stdout, stderr io.Writer, getenv func(string) string) in
 	}
 	log := logging.New(stderr, cfg.LogLevel, cfg.LogFormat)
 
-	registry, err := jobs.NewRegistry(buildJobs(deps{})...)
+	js, err := buildJobs(deps{})
+	if err != nil {
+		log.Error().Err(err).Msg("Could not build the jobs")
+		return exitFail
+	}
+	registry, err := jobs.NewRegistry(js...)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not register jobs")
 		return exitFail
@@ -160,7 +165,10 @@ func openStore(ctx context.Context, dataDir string) (*store.Store, error) {
 type deps struct {
 	st      *store.Store
 	get     *fetch.Client
+	reg     prometheus.Registerer
 	dataDir string
+	// legislatorsURL and portraitsURL are the sources' directories (flags).
+	legislatorsURL, portraitsURL string
 }
 
 // fetchSources are every source a job may fetch: the values of the fetch
@@ -175,12 +183,22 @@ var fetchSources = []string{
 const fetchPace = 500 * time.Millisecond
 
 // buildJobs returns every job, in registration order.
-func buildJobs(d deps) []jobs.Job {
-	src := legislators.NewClient(d.get, legislators.DefaultBase, legislators.MinMembers)
-	return []jobs.Job{
-		roster.NewJob(src, d.st, legislators.DefaultBase, time.Now),
-		portraits.NewJob(d.get, d.st, portraits.DefaultBase, filepath.Join(d.dataDir, portraitDir), time.Now),
+func buildJobs(d deps) ([]jobs.Job, error) {
+	if d.legislatorsURL == "" {
+		d.legislatorsURL = config.DefaultLegislatorsURL
 	}
+	if d.portraitsURL == "" {
+		d.portraitsURL = config.DefaultPortraitsURL
+	}
+	src := legislators.NewClient(d.get, d.legislatorsURL, legislators.MinMembers)
+	r, err := roster.NewJob(src, d.st, d.legislatorsURL, time.Now, d.reg)
+	if err != nil {
+		return nil, err
+	}
+	return []jobs.Job{
+		r,
+		portraits.NewJob(d.get, d.st, d.portraitsURL, filepath.Join(d.dataDir, portraitDir), time.Now),
+	}, nil
 }
 
 // portraitDir is the portraits' directory inside the data directory.
@@ -195,7 +213,13 @@ func runJob(ctx context.Context, cfg *config.Config, st *store.Store, name strin
 		log.Error().Err(err).Msg("Could not build the fetch client")
 		return exitFail
 	}
-	registry, err := jobs.NewRegistry(buildJobs(deps{st: st, get: client, dataDir: cfg.DataDir})...)
+	js, err := buildJobs(deps{st: st, get: client, reg: reg, dataDir: cfg.DataDir,
+		legislatorsURL: cfg.LegislatorsURL, portraitsURL: cfg.PortraitsURL})
+	if err != nil {
+		log.Error().Err(err).Msg("Could not build the jobs")
+		return exitFail
+	}
+	registry, err := jobs.NewRegistry(js...)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not register jobs")
 		return exitFail

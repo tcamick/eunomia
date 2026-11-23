@@ -4,7 +4,10 @@
 // and no current term fills (docs/implementation-plan.md, E1a).
 package geo
 
-import "sort"
+import (
+	"sort"
+	"time"
+)
 
 // Kind says what sort of place a jurisdiction is.
 type Kind string
@@ -39,7 +42,7 @@ func (j Jurisdiction) AtLarge() bool { return j.HouseSeats == 1 }
 const ApportionmentSource = "https://www2.census.gov/programs-surveys/decennial/2020/data/apportionment/apportionment-2020-table01.xlsx"
 
 // ApportionmentChecked is when the table below was compared with the source.
-const ApportionmentChecked = "2026-11-22"
+var ApportionmentChecked = time.Date(2026, 11, 22, 0, 0, 0, 0, time.UTC)
 
 // Census Bureau, "Table 1. Apportionment Population and Number of
 // Representatives by State: 2020 Census". Applies from the 118th Congress

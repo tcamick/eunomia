@@ -28,6 +28,8 @@ func TestValidate_DefaultsAreValid(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:8080", c.Listen)
 	assert.Equal(t, "127.0.0.1:8081", c.InternalListen)
 	assert.Empty(t, c.PushgatewayURL, "no push unless asked")
+	assert.Equal(t, "https://unitedstates.github.io/congress-legislators/", c.LegislatorsURL, "the dataset's published directory")
+	assert.Equal(t, "https://unitedstates.github.io/images/congress/225x275/", c.PortraitsURL, "the portraits' published directory")
 }
 
 func TestBind_EnvironmentOverridesDefaultsAndFlagsOverrideEnvironment(t *testing.T) {
@@ -43,10 +45,12 @@ func TestValidate_ReportsEveryProblemAtOnce(t *testing.T) {
 	t.Parallel()
 	c := parse(t, nil,
 		"-data-dir=", "-listen=nope", "-internal-listen=:0",
-		"-log-level=loud", "-log-format=xml", "-pushgateway-url=ftp://x")
+		"-log-level=loud", "-log-format=xml", "-pushgateway-url=ftp://x",
+		"-legislators-url=http://example.org/", "-portraits-url=https://example.org/no-slash")
 	err := c.Validate("/")
 	require.Error(t, err, "expected c.Validate to fail")
-	for _, flagName := range []string{"-data-dir", "-listen", "-internal-listen", "-log-level", "-log-format", "-pushgateway-url"} {
+	for _, flagName := range []string{"-data-dir", "-listen", "-internal-listen", "-log-level", "-log-format", "-pushgateway-url",
+		"-legislators-url", "-portraits-url"} {
 		assert.Contains(t, err.Error(), flagName+":", "expected a problem naming %s", flagName)
 	}
 }

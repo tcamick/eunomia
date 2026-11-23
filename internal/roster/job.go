@@ -3,8 +3,10 @@ package roster
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 
 	"github.com/tcamick/eunomia/internal/fetch"
@@ -29,16 +31,35 @@ type Source interface {
 // write what changed. An unchanged source costs three conditional requests
 // and writes no roster row.
 type Job struct {
-	src  Source
-	st   Store
-	base string // the dataset's URL, recorded as each row's source
-	now  func() time.Time
+	src     Source
+	st      Store
+	base    string // the dataset's URL, recorded as each row's source
+	now     func() time.Time
+	changes *prometheus.CounterVec
 }
 
+// Kinds are every change kind the roster records: the values of the changes
+// metric's kind label.
+var Kinds = []string{KindArrived, KindLeft, KindPartyChanged, KindOfficeChanged, KindLeadershipGained,
+	KindLeadershipLost, KindChairChanged, KindSeatJoined, KindSeatLeft, KindRecordCorrected}
+
 // NewJob returns the roster job. base is the dataset's URL (the files'
-// directory), which every row it writes names as its source.
-func NewJob(src Source, st Store, base string, now func() time.Time) *Job {
-	return &Job{src: src, st: st, base: base, now: now}
+// directory), which every row it writes names as its source. reg, if not
+// nil, gets eunomia_roster_changes_total{kind}, which the job pod pushes.
+func NewJob(src Source, st Store, base string, now func() time.Time, reg prometheus.Registerer) (*Job, error) {
+	changes := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "eunomia_roster_changes_total",
+		Help: "Changes the roster job recorded, by kind: " + strings.Join(Kinds, ", ") + ".",
+	}, []string{"kind"})
+	for _, k := range Kinds {
+		changes.WithLabelValues(k) // every kind is present, at zero, from the first push
+	}
+	if reg != nil {
+		if err := reg.Register(changes); err != nil {
+			return nil, fmt.Errorf("register roster metrics: %w", err)
+		}
+	}
+	return &Job{src: src, st: st, base: base, now: now, changes: changes}, nil
 }
 
 // Name is the job's registered name.
@@ -86,6 +107,9 @@ func (j *Job) Run(ctx context.Context) error {
 	}
 	if err := j.recordChecks(ctx, next, now, true); err != nil {
 		return err
+	}
+	for _, c := range plan.Changes {
+		j.changes.WithLabelValues(c.Kind).Inc()
 	}
 	log.Info().Int("members", len(snap.Legislators)).Int("people", len(plan.People)).Int("terms", len(plan.Terms)).
 		Int("seats", len(plan.Seats)+len(plan.UnlistSeats)).Int("changed", len(plan.Changes)).Msg("Applied the roster")

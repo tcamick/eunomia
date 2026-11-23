@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -38,13 +40,21 @@ func (f *fakeSource) Fetch(_ context.Context, prev legislators.Validators) (*leg
 	return f.snap, served, false, nil
 }
 
+// newFile always serves its snapshot as a changed file.
+type newFile struct{ snap *legislators.Snapshot }
+
+func (f newFile) Fetch(context.Context, legislators.Validators) (*legislators.Snapshot, legislators.Validators, bool, error) {
+	return f.snap, legislators.Validators{Members: fetch.Validators{ETag: `"m2"`}}, false, nil
+}
+
 const base = "https://unitedstates.github.io/congress-legislators/"
 
 func TestJob_FirstRunLoadsAndTheSecondSendsTheValidatorsBack(t *testing.T) {
 	t.Parallel()
 	s := openStore(t)
 	src := &fakeSource{snap: snapshot(t)}
-	j := NewJob(src, s, base, func() time.Time { return t0 })
+	j, err := NewJob(src, s, base, func() time.Time { return t0 }, nil)
+	require.NoError(t, err, "building the job")
 	ctx := context.Background()
 
 	require.NoError(t, j.Run(ctx), "the first run")
@@ -73,7 +83,9 @@ func TestJob_AFailedFetchWritesNothing(t *testing.T) {
 	t.Parallel()
 	s := openStore(t)
 	src := &fakeSource{err: errors.New("source said 503")}
-	err := NewJob(src, s, base, func() time.Time { return t0 }).Run(context.Background())
+	j, err := NewJob(src, s, base, func() time.Time { return t0 }, nil)
+	require.NoError(t, err, "building the job")
+	err = j.Run(context.Background())
 	require.Error(t, err, "the fetch failed")
 	st, err := s.RosterState(context.Background())
 	require.NoError(t, err, "reading the stored roster")
@@ -81,4 +93,24 @@ func TestJob_AFailedFetchWritesNothing(t *testing.T) {
 	_, ok, err := s.SourceState(context.Background(), legislators.SourceLegislators)
 	require.NoError(t, err, "reading the source's state")
 	assert.False(t, ok, "a failed fetch is not a check")
+}
+
+func TestJob_CountsChangesByKind(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	reg := prometheus.NewRegistry()
+	snap := snapshot(t)
+	src := &fakeSource{snap: snap}
+	j, err := NewJob(src, s, base, func() time.Time { return t0 }, reg)
+	require.NoError(t, err, "building the job")
+	ctx := context.Background()
+	require.NoError(t, j.Run(ctx), "the first run")
+	assert.Equal(t, len(Kinds), testutil.CollectAndCount(reg, "eunomia_roster_changes_total"),
+		"every kind is present from the first run, so a push carries all of them")
+	assert.Zero(t, testutil.ToFloat64(j.changes.WithLabelValues(KindArrived)), "a first load records no change")
+
+	j.src = newFile{edit(t, snap, func(l *legislators.Legislator) { l.Terms[len(l.Terms)-1].Party = "Independent" })}
+	require.NoError(t, j.Run(ctx), "the run after a party switch")
+	assert.InDelta(t, 1, testutil.ToFloat64(j.changes.WithLabelValues(KindPartyChanged)), 0, "one party switch is counted once")
+	assert.Zero(t, testutil.ToFloat64(j.changes.WithLabelValues(KindLeft)), "nothing else is counted")
 }

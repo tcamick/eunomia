@@ -32,6 +32,11 @@ type Config struct {
 	// exit, since its pod is gone before Prometheus could scrape it
 	// (beholder ADR 0002). Empty (a laptop) pushes nothing.
 	PushgatewayURL string
+	// LegislatorsURL is the congress-legislators dataset's directory, and
+	// PortraitsURL the portraits' (go-conventions, Fetching: a source's base
+	// URL is a flag). Both are https and end in "/".
+	LegislatorsURL string
+	PortraitsURL   string
 }
 
 // Environment variables that override each flag's default.
@@ -42,6 +47,14 @@ const (
 	EnvLogLevel       = "LOG_LEVEL"
 	EnvLogFormat      = "LOG_FORMAT"
 	EnvPushgatewayURL = "EUNOMIA_PUSHGATEWAY_URL"
+	EnvLegislatorsURL = "EUNOMIA_LEGISLATORS_URL"
+	EnvPortraitsURL   = "EUNOMIA_PORTRAITS_URL"
+)
+
+// The sources' published directories, the URL flags' defaults.
+const (
+	DefaultLegislatorsURL = "https://unitedstates.github.io/congress-legislators/"
+	DefaultPortraitsURL   = "https://unitedstates.github.io/images/congress/225x275/"
 )
 
 // Bind registers every flag on fs with its default taken from getenv when
@@ -67,6 +80,10 @@ func Bind(fs *flag.FlagSet, getenv func(string) string) *Config {
 		"json or text (env "+EnvLogFormat+")")
 	fs.StringVar(&c.PushgatewayURL, "pushgateway-url", def(EnvPushgatewayURL, ""),
 		"Pushgateway base URL a job pushes its counters to at exit; empty pushes nothing (env "+EnvPushgatewayURL+")")
+	fs.StringVar(&c.LegislatorsURL, "legislators-url", def(EnvLegislatorsURL, DefaultLegislatorsURL),
+		"https directory of the congress-legislators JSON files, ending in / (env "+EnvLegislatorsURL+")")
+	fs.StringVar(&c.PortraitsURL, "portraits-url", def(EnvPortraitsURL, DefaultPortraitsURL),
+		"https directory of the members' portraits, ending in / (env "+EnvPortraitsURL+")")
 	return c
 }
 
@@ -102,6 +119,14 @@ func (c *Config) Validate(cwd string) error {
 		u, err := url.Parse(c.PushgatewayURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			errs = append(errs, fmt.Errorf("-pushgateway-url: %q is not an http or https URL with a host", c.PushgatewayURL))
+		}
+	}
+	for _, src := range []struct{ flag, val string }{
+		{"-legislators-url", c.LegislatorsURL}, {"-portraits-url", c.PortraitsURL},
+	} {
+		u, err := url.Parse(src.val)
+		if err != nil || u.Scheme != "https" || u.Host == "" || !strings.HasSuffix(u.Path, "/") || u.RawQuery != "" {
+			errs = append(errs, fmt.Errorf("%s: %q is not an https URL with a host and a path ending in /", src.flag, src.val))
 		}
 	}
 	return errors.Join(errs...)

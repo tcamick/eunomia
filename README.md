@@ -33,6 +33,8 @@ Every flag has an environment override; a flag beats the environment. Invalid va
 | `-log-level` | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 | `-log-format` | `LOG_FORMAT` | `json` | `json` or `text` |
 | `-pushgateway-url` | `EUNOMIA_PUSHGATEWAY_URL` | empty | where a job pushes its gauges at exit (beholder ADR 0002); empty pushes nothing |
+| `-legislators-url` | `EUNOMIA_LEGISLATORS_URL` | `https://unitedstates.github.io/congress-legislators/` | the congress-legislators JSON files' directory; https, ending in `/` |
+| `-portraits-url` | `EUNOMIA_PORTRAITS_URL` | `https://unitedstates.github.io/images/congress/225x275/` | the members' portraits' directory; https, ending in `/` |
 
 ## Jobs
 | Job | What it does | Schedule on neptune |

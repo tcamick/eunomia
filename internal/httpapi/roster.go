@@ -96,9 +96,10 @@ func (a *api) congressHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{
-		"chambers":      congress.Summarize(ms, roles),
-		keySources:      a.rosterSource(ctx),
-		"apportionment": SourceLine{Name: "Census Bureau, 2020 apportionment", URL: geo.ApportionmentSource},
+		"chambers": congress.Summarize(ms, roles),
+		keySources: a.rosterSource(ctx),
+		"apportionment": SourceLine{Name: "Census Bureau, 2020 apportionment", URL: geo.ApportionmentSource,
+			CheckedAt: geo.ApportionmentChecked},
 	})
 }
 

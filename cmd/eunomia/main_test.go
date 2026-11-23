@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tcamick/eunomia/internal/config"
+	"github.com/tcamick/eunomia/internal/legislators"
+	"github.com/tcamick/eunomia/internal/portraits"
 	"github.com/tcamick/eunomia/internal/store"
 )
 
@@ -103,4 +106,12 @@ func TestRun_UnknownJobIsAUsageErrorAndRecordsNothing(t *testing.T) {
 	jobs, err := st.Jobs(context.Background())
 	require.NoError(t, err, "calling st.Jobs")
 	assert.Empty(t, jobs)
+}
+
+func TestConfig_SourceDefaultsAreTheAdaptersPublishedDirectories(t *testing.T) {
+	t.Parallel()
+	// config keeps its defaults as literals so it stays a leaf package; this
+	// holds them to the adapters' own.
+	assert.Equal(t, legislators.DefaultBase, config.DefaultLegislatorsURL)
+	assert.Equal(t, portraits.DefaultBase, config.DefaultPortraitsURL)
 }

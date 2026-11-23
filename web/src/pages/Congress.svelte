@@ -22,6 +22,7 @@
     members.stop();
   });
 
+  const stateNameOf = $derived(new Map((members.data?.members ?? []).map((m) => [m.id, m.stateName])));
   const portraitOf = $derived(new Map((members.data?.members ?? []).map((m) => [m.id, m.portrait])));
   const names = { senate: 'Senate', house: 'House of Representatives' };
 </script>
@@ -85,10 +86,10 @@
 
         {#if c.delegates.length > 0}
           <h3>Non-voting members</h3>
-          <p class="muted small">The District of Columbia and five territories each send a member who serves on committees but does not vote on bills.</p>
+          <p class="muted small">The District of Columbia and five territories each send a member who can vote in committee but not on the House floor.</p>
           <ul class="plain">
             {#each c.delegates as d (d.id)}
-              <li><a href="/people/{d.id}">{d.name}</a> <span class="muted">{d.state}</span></li>
+              <li><a href="/people/{d.id}">{d.name}</a> <span class="muted">{stateNameOf.get(d.id) ?? d.state}</span></li>
             {/each}
           </ul>
         {/if}
