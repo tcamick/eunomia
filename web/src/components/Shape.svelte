@@ -15,6 +15,8 @@
   <polygon points="{cx},{cy - r * 1.08} {cx + r * 1.08},{cy} {cx},{cy + r * 1.08} {cx - r * 1.08},{cy}" />
 {:else if shape === 'triangle'}
   <polygon points="{cx},{cy - r * 1.05} {cx + r * 1.05},{cy + r * 0.8} {cx - r * 1.05},{cy + r * 0.8}" />
+{:else if shape === 'box'}
+  <rect x={cx - s * 0.82} y={cy - s * 0.82} width={2 * s * 0.82} height={2 * s * 0.82} fill="none" stroke="currentColor" stroke-width={r * 0.34} />
 {:else}
   <circle {cx} {cy} r={r * 0.78} fill="none" stroke="currentColor" stroke-width={r * 0.38} />
 {/if}

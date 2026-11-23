@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calendarDate, duration, localDateTime, ordinal, relativeTime, seatName, year } from './format.ts';
+import { calendarDate, duration, localDate, localDateTime, ordinal, relativeTime, seatName, year } from './format.ts';
 
 test('calendarDate never shifts a date west of UTC', () => {
   // Formatting with UTC: the 3rd stays the 3rd whatever the viewer's zone.
@@ -42,4 +42,12 @@ test('duration reads as plain words', () => {
   assert.equal(duration(4200), '4.2 s');
   assert.equal(duration(180_000), '3 min');
   assert.equal(duration(-1), 'unknown');
+});
+
+test('localDate gives the day of an instant in the given zone', () => {
+  // 03:00 UTC on Nov 23 is still Nov 22 in Los Angeles.
+  assert.equal(localDate('2026-11-23T03:00:00Z', 'en-US', 'America/Los_Angeles'), 'Nov 22, 2026');
+  assert.equal(localDate('2026-11-23T03:00:00Z', 'en-US', 'UTC'), 'Nov 23, 2026');
+  assert.equal(localDate('not a time'), 'unknown');
+  assert.equal(localDate(undefined), 'unknown');
 });

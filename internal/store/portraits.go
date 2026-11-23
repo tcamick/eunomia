@@ -43,8 +43,9 @@ func (s *Store) PortraitsDue(ctx context.Context, before time.Time, limit int) (
 	return out, nil
 }
 
-// RecordPortrait upserts a portrait check. A zero FetchedAt keeps the stored
-// one (the file did not change).
+// RecordPortrait upserts a portrait check. A zero FetchedAt means the
+// source answered "not modified": the stored fetch time stays. A first check
+// is always a fetch, so a new row takes CheckedAt when FetchedAt is zero.
 func (s *Store) RecordPortrait(ctx context.Context, ps PortraitState) error {
 	var fetched any
 	if !ps.FetchedAt.IsZero() {
@@ -52,27 +53,14 @@ func (s *Store) RecordPortrait(ctx context.Context, ps PortraitState) error {
 	}
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO portraits (person, file, etag, last_modified, checked_at, source, fetched_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES (?1, ?2, ?3, ?4, ?5, ?6, COALESCE(?7, ?5))
 		ON CONFLICT (person) DO UPDATE SET
 		  file = excluded.file, etag = excluded.etag, last_modified = excluded.last_modified,
 		  checked_at = excluded.checked_at, source = excluded.source,
-		  fetched_at = COALESCE(excluded.fetched_at, portraits.fetched_at)`,
+		  fetched_at = COALESCE(?7, portraits.fetched_at)`,
 		ps.Person, nullable(ps.File), ps.ETag, ps.LastModified, ps.CheckedAt.UTC().Format(time.RFC3339), ps.Source, fetched)
 	if err != nil {
 		return fmt.Errorf("record portrait %s: %w", ps.Person, err)
 	}
 	return nil
-}
-
-// PortraitFile returns the mirrored file's name for a person, if there is one.
-func (s *Store) PortraitFile(ctx context.Context, person string) (string, bool, error) {
-	var file sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT file FROM portraits WHERE person = ?`, person).Scan(&file)
-	if err == sql.ErrNoRows { //nolint:errorlint // database/sql returns the sentinel itself
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, fmt.Errorf("read portrait %s: %w", person, err)
-	}
-	return file.String, file.Valid, nil
 }

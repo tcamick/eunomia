@@ -136,6 +136,8 @@ export interface PersonSeat {
   side: 'majority' | 'minority';
   rank?: number;
   title?: string;
+  /** When the source stopped listing the seat (an instant); absent while listed. */
+  unlistedOn?: string;
 }
 
 export interface Person {

@@ -2,7 +2,7 @@
   import Shape from './Shape.svelte';
   import type { Chamber, Member } from '../lib/api';
   import { hemicycle } from '../lib/hemicycle';
-  import { partyLabel, partyStyle, seatingOrder, vacantStyle } from '../lib/party';
+  import { partyLabel, partyStyle, seatingOrder, vacantStyle, type Shape as ShapeName } from '../lib/party';
   import { seatName } from '../lib/format';
 
   // A chamber's voting seats as a hemicycle. Each seat is a link to its
@@ -16,7 +16,7 @@
     href?: string;
     title: string;
     token: string;
-    shape: 'circle' | 'square' | 'diamond' | 'triangle' | 'ring';
+    shape: ShapeName;
   }
 
   const entries = $derived.by((): SeatEntry[] => {

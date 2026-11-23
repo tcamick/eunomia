@@ -3,7 +3,7 @@
 // party colour). The shapes make the seat chart readable without colour.
 
 export type PartyCode = 'D' | 'R' | 'I' | 'O' | '';
-export type Shape = 'circle' | 'square' | 'diamond' | 'triangle' | 'ring';
+export type Shape = 'circle' | 'square' | 'diamond' | 'triangle' | 'ring' | 'box';
 
 export interface PartyStyle {
   token: string;
@@ -15,16 +15,20 @@ const styles: Record<string, PartyStyle> = {
   R: { token: '--party-rep', shape: 'square' },
   I: { token: '--party-ind', shape: 'diamond' },
   O: { token: '--party-other', shape: 'triangle' },
-  '': { token: '--vacant', shape: 'ring' },
+  // A member whose party the source does not give: a hollow square, so it
+  // is never read as a vacant seat (web-conventions, party colour).
+  '': { token: '--muted', shape: 'box' },
+  vacant: { token: '--vacant', shape: 'ring' },
 };
 
-/** partyStyle returns the colour token and shape for a party code. */
+/** partyStyle returns the colour token and shape for a party code; '' is
+ * "party unknown" and 'vacant' an empty seat. */
 export function partyStyle(code: string): PartyStyle {
   return styles[code] ?? styles['O']!;
 }
 
 /** vacantStyle is how an empty seat is drawn. */
-export const vacantStyle: PartyStyle = { token: '--vacant', shape: 'ring' };
+export const vacantStyle: PartyStyle = styles['vacant']!;
 
 export interface SeatGroup {
   party: string;

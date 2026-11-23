@@ -66,6 +66,13 @@ export function localDateTime(iso: string, locale?: string, timeZone?: string): 
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(then);
 }
 
+/** localDate is the day of an instant, in the viewer's time zone: "Nov 23, 2026". */
+export function localDate(iso: string | undefined, locale?: string, timeZone?: string): string {
+  const then = Date.parse(iso ?? '');
+  if (Number.isNaN(then)) return 'unknown';
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone }).format(then);
+}
+
 /** duration is a job's run time in plain words: "850 ms", "4.2 s", "3 min". */
 export function duration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return 'unknown';

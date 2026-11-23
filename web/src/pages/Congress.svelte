@@ -48,7 +48,7 @@
             <li><PartyMark code={p.code} party={p.party} caucus={p.caucus} /><span class="num">{p.seats}</span></li>
           {/each}
           {#if c.vacancies.some((v) => v.voting)}
-            <li><PartyMark code="" party="Vacant" /><span class="num">{c.vacancies.filter((v) => v.voting).length}</span></li>
+            <li><PartyMark code="vacant" party="Vacant" /><span class="num">{c.vacancies.filter((v) => v.voting).length}</span></li>
           {/if}
         </ul>
         <p class="majority">

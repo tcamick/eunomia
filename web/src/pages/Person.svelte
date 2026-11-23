@@ -5,7 +5,7 @@
   import Portrait from '../components/Portrait.svelte';
   import Sources from '../components/Sources.svelte';
   import type { Person, PersonSeat, PersonTerm } from '../lib/api';
-  import { calendarDate, seatName, year } from '../lib/format';
+  import { calendarDate, localDate, seatName, year } from '../lib/format';
   import { Load } from '../lib/load.svelte';
   import type { PageProps } from '../lib/page';
   import { partyCode } from '../lib/party';
@@ -31,8 +31,9 @@
 
   // Committee seats: each top-level committee, with this member's
   // subcommittees of it beneath.
+  const earlierSeats = $derived((p?.seats ?? []).filter((s) => s.unlistedOn));
   const committees = $derived.by(() => {
-    const seats = p?.seats ?? [];
+    const seats = (p?.seats ?? []).filter((s) => !s.unlistedOn);
     const top = seats.filter((s) => !s.parent);
     const subsOf = (id: string): PersonSeat[] => seats.filter((s) => s.parent === id);
     const orphans = seats.filter((s) => s.parent && !top.some((t) => t.committee === s.parent));
@@ -106,7 +107,7 @@
     </section>
   {/if}
 
-  {#if p.seats.length > 0}
+  {#if committees.top.length + committees.orphans.length > 0}
     <section aria-labelledby="h-committees">
       <h2 id="h-committees">Committees</h2>
       <ul class="committees">
@@ -130,6 +131,20 @@
     </section>
   {/if}
 
+  {#if earlierSeats.length > 0}
+    <section aria-labelledby="h-earlier">
+      <h2 id="h-earlier">Earlier committee seats</h2>
+      <ul class="plain">
+        {#each earlierSeats as s (s.committee)}
+          <li>
+            <a href="/committees/{s.committee}">{s.name}</a>
+            <span class="muted small">{seatRole(s)}; no longer listed from {localDate(s.unlistedOn)}</span>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
   <section aria-labelledby="h-service">
     <h2 id="h-service">Service in Congress</h2>
     <ol class="terms">
@@ -139,7 +154,7 @@
           <span>
             {office(t)} for {seatName(t)}
             {#if how(t)}<span class="muted">({how(t)})</span>{/if}
-            {#if t.leftOn && !t.current}<span class="muted">, left {calendarDate(t.leftOn)}</span>{/if}
+            {#if t.leftOn && !t.current}<span class="muted">, no longer listed from {calendarDate(t.leftOn)}</span>{/if}
           </span>
           <span class="party">
             {#if t.affiliations && t.affiliations.length > 1}

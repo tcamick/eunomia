@@ -133,5 +133,5 @@ CREATE TABLE portraits (
   last_modified TEXT NOT NULL DEFAULT '',
   checked_at    TEXT NOT NULL,
   source        TEXT NOT NULL,
-  fetched_at    TEXT
+  fetched_at    TEXT NOT NULL                 -- when the source last answered with a new file or with none (a 404 is a fetch)
 ) STRICT;

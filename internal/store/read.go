@@ -97,15 +97,17 @@ type Provenance struct {
 
 // PersonTerm is one term on a person's page.
 type PersonTerm struct {
-	Office       string `json:"office"`
-	Body         string `json:"body"`
-	State        string `json:"state"`
-	District     *int   `json:"district,omitempty"`
-	Class        *int   `json:"class,omitempty"`
-	Start        string `json:"start"`
-	End          string `json:"end"`
-	Party        string `json:"party,omitempty"`
-	Caucus       string `json:"caucus,omitempty"`
+	Office   string `json:"office"`
+	Body     string `json:"body"`
+	State    string `json:"state"`
+	District *int   `json:"district,omitempty"`
+	Class    *int   `json:"class,omitempty"`
+	Start    string `json:"start"`
+	End      string `json:"end"`
+	// Party and Caucus are always present, empty when the source gives none,
+	// so every member's page has the same fields (PRD §3).
+	Party        string `json:"party"`
+	Caucus       string `json:"caucus"`
 	How          string `json:"how,omitempty"`
 	StateRank    string `json:"stateRank,omitempty"`
 	URL          string `json:"url,omitempty"`
@@ -130,14 +132,20 @@ type PersonSeat struct {
 
 // PersonDetail is everything a person's page shows from the roster.
 type PersonDetail struct {
-	Person     Person
-	Terms      []PersonTerm
-	Roles      []Role
-	Seats      []PersonSeat
-	Portrait   bool
+	Person   Person
+	Terms    []PersonTerm
+	Roles    []Role
+	Seats    []PersonSeat
+	Portrait bool
+	// Provenance's FetchedAt is when this person's record last changed: the
+	// newest write, or stop-listing, across their person, term, role and
+	// seat rows.
 	Provenance Provenance
-	// PortraitSource is where the portrait was mirrored from.
-	PortraitSource string
+	// PortraitSource is where the portrait was mirrored from, with when it
+	// was last checked and when the source last sent a new answer.
+	PortraitSource  string
+	PortraitChecked time.Time
+	PortraitFetched time.Time
 }
 
 // PersonDetail reads one person, or reports that there is none.
@@ -150,21 +158,27 @@ func (s *Store) PersonDetail(ctx context.Context, id string) (PersonDetail, bool
 	defer func() { _ = tx.Rollback() }()
 
 	var (
-		in       int
-		fetched  string
-		portrait sql.NullString
+		in                 int
+		fetched            string
+		portrait           sql.NullString
+		pChecked, pFetched string
 	)
 	p := &d.Person
 	err = tx.QueryRowContext(ctx, `
 		SELECT p.id, COALESCE(p.bioguide,''), COALESCE(p.lis,''), COALESCE(p.fec_ids,''), COALESCE(p.icpsr,0),
 		       COALESCE(p.govtrack,0), COALESCE(p.wikidata,''), COALESCE(p.wikipedia,''), COALESCE(p.ballotpedia,''),
 		       p.first_name, COALESCE(p.middle_name,''), p.last_name, COALESCE(p.suffix,''), COALESCE(p.nickname,''),
-		       p.display_name, COALESCE(p.birthday,''), COALESCE(p.gender,''), p.in_congress, p.source, p.fetched_at,
-		       x.file, COALESCE(x.source, '')
+		       p.display_name, COALESCE(p.birthday,''), COALESCE(p.gender,''), p.in_congress, p.source,
+		       (SELECT max(f) FROM (
+		          SELECT p.fetched_at AS f
+		          UNION ALL SELECT max(fetched_at, COALESCE(unlisted_on, '')) FROM terms WHERE person = p.id
+		          UNION ALL SELECT max(fetched_at, COALESCE(unlisted_on, '')) FROM leadership WHERE person = p.id
+		          UNION ALL SELECT max(fetched_at, COALESCE(unlisted_on, '')) FROM committee_seats WHERE person = p.id)),
+		       x.file, COALESCE(x.source, ''), COALESCE(x.checked_at, ''), COALESCE(x.fetched_at, '')
 		FROM people p LEFT JOIN portraits x ON x.person = p.id WHERE p.id = ?`, id).Scan(
 		&p.ID, &p.Bioguide, &p.LIS, &p.FECIDs, &p.ICPSR, &p.GovTrack, &p.Wikidata, &p.Wikipedia, &p.Ballotpedia,
 		&p.First, &p.Middle, &p.Last, &p.Suffix, &p.Nickname, &p.Display, &p.Birthday, &p.Gender, &in,
-		&d.Provenance.Source, &fetched, &portrait, &d.PortraitSource)
+		&d.Provenance.Source, &fetched, &portrait, &d.PortraitSource, &pChecked, &pFetched)
 	if err == sql.ErrNoRows { //nolint:errorlint // database/sql returns the sentinel itself
 		return d, false, nil
 	}
@@ -175,6 +189,17 @@ func (s *Store) PersonDetail(ctx context.Context, id string) (PersonDetail, bool
 	d.Portrait = portrait.Valid
 	if d.Provenance.FetchedAt, err = time.Parse(time.RFC3339, fetched); err != nil {
 		return d, false, fmt.Errorf("person %s fetched_at: %w", id, err)
+	}
+	for _, x := range []struct {
+		raw string
+		to  *time.Time
+	}{{pChecked, &d.PortraitChecked}, {pFetched, &d.PortraitFetched}} {
+		if x.raw == "" {
+			continue // no portrait row yet
+		}
+		if *x.to, err = time.Parse(time.RFC3339, x.raw); err != nil {
+			return d, false, fmt.Errorf("person %s portrait time: %w", id, err)
+		}
 	}
 
 	err = eachRow(ctx, tx, `

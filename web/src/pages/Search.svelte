@@ -30,6 +30,12 @@
     ].filter((g) => g.items.length > 0);
   });
 
+  const announce = $derived.by(() => {
+    if (!q || !load.data || load.data.q !== q) return '';
+    const n = load.data.results.length;
+    return n === 0 ? `Nothing matches ${q}.` : `${n} ${n === 1 ? 'result' : 'results'} for ${q}.`;
+  });
+
   function href(r: SearchResult): string {
     if (r.kind === 'person') return `/people/${r.id}`;
     if (r.kind === 'committee') return `/committees/${r.id}`;
@@ -53,13 +59,16 @@
   </div>
 </form>
 
-<div aria-live="polite">
+<!-- One polite announcement per finished search: the count, never "Searching…". -->
+<p class="visually-hidden" aria-live="polite">{announce}</p>
+
+<div aria-busy={!!q && !load.error && (!load.data || load.data.q !== q)}>
   {#if !q}
     <p class="muted">Try a last name, a state such as “Ohio” or “OH”, or a word like “Judiciary”.</p>
   {:else if load.error}
     <p role="alert">Could not search: {load.error}.</p>
   {:else if !load.data || load.data.q !== q}
-    <p aria-busy="true">Searching…</p>
+    <p class="muted">Searching…</p>
   {:else if groups.length === 0}
     <p>Nothing matches “{q}”.</p>
   {:else}

@@ -189,9 +189,20 @@ func (a *api) personHandler(w http.ResponseWriter, r *http.Request) {
 		resp.Links = append(resp.Links, Link{Label: "Congress.gov", URL: "https://www.congress.gov/member/" + p.Bioguide})
 		resp.Links = append(resp.Links, Link{Label: "Biographical Directory", URL: "https://bioguide.congress.gov/search/bio/" + p.Bioguide})
 	}
-	resp.Sources = []SourceLine{{Name: rosterSourceName, URL: d.Provenance.Source, ChangedAt: d.Provenance.FetchedAt}}
-	if d.Portrait && d.PortraitSource != "" {
-		resp.Sources = append(resp.Sources, SourceLine{Name: "Portrait: unitedstates/images", URL: d.PortraitSource})
+	// The roster line: when the dataset was last checked, and when this
+	// member's own record last changed.
+	line := SourceLine{Name: rosterSourceName, URL: d.Provenance.Source, ChangedAt: d.Provenance.FetchedAt}
+	for _, c := range a.rosterSource(ctx) {
+		line.CheckedAt = c.CheckedAt
+	}
+	resp.Sources = []SourceLine{line}
+	if d.PortraitSource != "" {
+		name := "Portrait: unitedstates/images"
+		if !d.Portrait {
+			name = "Portrait: unitedstates/images (none published for this member)"
+		}
+		resp.Sources = append(resp.Sources, SourceLine{Name: name, URL: d.PortraitSource,
+			CheckedAt: d.PortraitChecked, ChangedAt: d.PortraitFetched})
 	}
 	writeJSON(w, resp)
 }
