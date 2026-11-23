@@ -11,7 +11,7 @@ Roadmap `docs/roadmap.md`, E1a; plan `docs/implementation-plan.md` §4, E1a; PRD
 - [x] Search finds a member by part of their name, by state and by committee — evidence: `/api/search` on the live roster: `schum` → Charles E. Schumer; `ohio` and `OH` → Ohio first (its link opens Members filtered to Ohio, 17 members, screenshot); `judiciary` → both Judiciary committees. `/search?q=ohio` screenshot at 390 px.
 - [x] The look is recorded in ADR 0007, and the party colours pass the palette checks in both themes — evidence: `docs/adr/0007-the-look.md`; the dataviz skill's `validate_palette.js`, all pairs, against `--bg`: light all checks pass (CVD ≥ 14.3, normal ≥ 15.6, ≥ 3:1), dark all pass (CVD ≥ 12.1, normal ≥ 15.5, ≥ 3:1). The first tokens failed and were changed (ADR 0007).
 - [x] It lands with `make land`, the first branch to do so (E0 is merged by hand), and `make deploy-status` then shows pinned, `main` and the cluster in agreement — evidence: 2026-11-23, `make land` merged `0755bd4`, built and pinned the image, pushed `b2c2356` and nudged Flux; `make deploy-status`: checkout 0 ahead/0 behind, image pinned and current, Flux has `main@b2c2356`, the server runs the pinned digest. Flux pruned the `noop` CronJob.
-- [ ] The pages have been looked at on a phone-width and a laptop-width window, by keyboard alone, in both themes — evidence: every page at 360 px, at 200% zoom (640 CSS px, scale 2) and in dark at 1280 px, 2026-11-23 (below); **keyboard alone not yet done** by a person.
+- [x] The pages have been looked at on a phone-width and a laptop-width window, by keyboard alone, in both themes — evidence: every page at 360 px, at 200% zoom (640 CSS px, scale 2) and in dark at 1280 px, 2026-11-23 (below); keyboard alone by the owner on the live site, 2026-11-23 (below).
 
 ## Sources (checked 2026-11-22)
 - `https://unitedstates.github.io/congress-legislators/legislators-current.json`, `committees-current.json`, `committee-membership-current.json` — the `unitedstates/congress-legislators` project; public domain (CC0). No key, no stated rate limit; fetched once a day with conditional requests.
@@ -43,5 +43,5 @@ Reviewer pass 3, 2026-11-23: one blocking, no should-fix, three nits, all fixed.
 - The Congress legend, now a table, looked at again at 1280 px: aligned, counts match the chart · Claude · 2026-11-23 · Chrome headless on neptune
 - Found at 200% zoom and fixed: the Members filters' State select ran past the page edge and the Name box touched Chamber (a control's built-in minimum width); controls now shrink to their column · Claude · 2026-11-23
 - Found by looking and fixed: the Congress page crashed on the Senate's missing `delegates` list; a missing space before "(senior senator)" · Claude · 2026-11-23
-- Keyboard alone (Tab order, skip link, focus ring on every link and control, the heading focused after navigation): not yet · owner · — · —
+- Keyboard alone (Tab order, skip link, focus ring on every link and control, the heading focused after navigation, search, the Members filters): "keyboard works nicely" · owner · 2026-11-23 · https://eunomia.tail0adfbf.ts.net
 - The owner's phone: not yet · owner · — · —
