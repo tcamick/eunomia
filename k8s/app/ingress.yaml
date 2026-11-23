@@ -1,0 +1,18 @@
+# The app's address on the tailnet: https://eunomia.<tailnet>.ts.net, with a
+# certificate from Tailscale, through the Tailscale operator Plutus runs.
+# Nothing is exposed on neptune's own interfaces.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eunomia
+  namespace: eunomia
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: eunomia
+      port:
+        number: 8080
+  tls:
+    - hosts:
+        - eunomia

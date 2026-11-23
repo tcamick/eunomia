@@ -1,0 +1,16 @@
+# The data directory: the SQLite file and, from E1a, mirrored portraits. On
+# neptune's SSD through k3s's local-path provisioner; the server and the job
+# pods mount it together on the one node (ADR 0003). A ReadWriteOnce volume
+# allows that: the access mode is per node, not per pod.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eunomia-data
+  namespace: eunomia
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi

@@ -1,0 +1,88 @@
+# eunomia serve: one replica, replaced rather than rolled, since it shares
+# one SQLite file with the jobs (docs/k8s-conventions.md, rule 6).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eunomia
+  namespace: eunomia
+  labels:
+    app.kubernetes.io/name: eunomia
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eunomia
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: eunomia
+    spec:
+      serviceAccountName: eunomia
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: eunomia
+          image: eunomia
+          args:
+            - serve
+            - -listen=0.0.0.0:8080
+            # /metrics; only Prometheus may reach it (network.yaml).
+            - -internal-listen=0.0.0.0:8081
+            - -data-dir=/data
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: internal
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: eunomia-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eunomia
+  namespace: eunomia
+  labels:
+    app.kubernetes.io/name: eunomia
+spec:
+  selector:
+    app.kubernetes.io/name: eunomia
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

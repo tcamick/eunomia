@@ -1,0 +1,20 @@
+# What Flux on neptune applies from ./k8s/app. The GitRepository and the
+# Kustomization that point here are declared in the Plutus repository
+# (deploy/k8s/clusters/neptune/eunomia.yaml) until the cluster has its own.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - storage.yaml
+  - server.yaml
+  - jobs.yaml
+  - network.yaml
+  - ingress.yaml
+  - claude-ops.yaml
+# The deployed image, from neptune's own registry. `make deploy` rewrites the
+# digest line; the comment after it is the commit it was built from. Never
+# pin by hand from a branch or an old build (docs/k8s-conventions.md, rule 5).
+images:
+  - name: eunomia
+    newName: localhost:5000/eunomia
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000  # unbuilt

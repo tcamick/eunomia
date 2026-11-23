@@ -51,10 +51,10 @@ Makefile, .golangci.yml, go.mod, go.sum, Dockerfile
 - Never log an API key or a whole response body.
 
 ## Metrics
-- Prometheus client; `/metrics` on the internal port (`-internal-listen`), not the one the tailnet reaches. Names are `eunomia_<area>_<thing>_<unit>`: `eunomia_fetch_requests_total{source,result}`, `eunomia_fetch_duration_seconds{source}`, `eunomia_job_runs_total{job,result}`, `eunomia_job_last_success_timestamp_seconds{job}`, `eunomia_roster_changes_total{kind}`, `eunomia_news_stories_added_total{feed}`, `eunomia_http_requests_total{route,code}`.
+- Prometheus client; `/metrics` on the internal port (`-internal-listen`), not the one the tailnet reaches. Names are `eunomia_<area>_<thing>_<unit>`: `eunomia_fetch_requests_total{source,result}`, `eunomia_fetch_duration_seconds{source}`, `eunomia_job_last_run_ok{job}`, `eunomia_job_last_success_timestamp_seconds{job}`, `eunomia_batch_last_run_ok` (pushed, grouped by `batch`), `eunomia_roster_changes_total{kind}`, `eunomia_news_stories_added_total{feed}`, `eunomia_http_requests_total{route,code}`.
 - **Labels are bounded:** every value can be listed when the code is written (`source`, `feed`, `job`, `result`, `kind`, `route`). Never a person, a state's free text, a URL, a headline or an error message.
 - **Every outside source** gets a request counter by `source` and `result` and a duration histogram, from `internal/fetch`, so an adapter cannot forget them.
-- A job pod lives seconds. It pushes its counters to beholder's Pushgateway once at exit (`PUT`, `job="eunomia-batch"`, grouping label `batch=<job name>`; beholder ADR 0002), and records its outcome in the `jobs` table, which the server exports at scrape time.
+- A job pod lives seconds. It pushes its counters to beholder's Pushgateway once at exit (`PUT`, `job="eunomia-batch"`, grouping label `batch=<job name>`; beholder ADR 0002), and records its outcome in the `jobs` table, which the server exports at scrape time. A pushed family must not carry a `job` or `batch` label of its own (the gateway's grouping labels); `internal/jobs` leaves such a family out of the push.
 - Help text says what is counted and lists the label values. Metrics are tested as behaviour: the name, the labels, that it was emitted, and that a bounded label cannot take an unbounded value.
 
 ## Testing

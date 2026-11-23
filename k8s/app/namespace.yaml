@@ -1,0 +1,30 @@
+# Eunomia's namespace enforces the Restricted Pod Security Standard, pinned to
+# a version so a Kubernetes upgrade cannot change what is admitted
+# (docs/k8s-conventions.md, rule 1).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eunomia
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.37
+    # Opts in to pushing to beholder's Pushgateway (its ADR 0002); which
+    # pods may is network.yaml's eunomia-jobs-to-pushgateway.
+    beholder.neptune/push-metrics: "true"
+---
+# The server's account. No permissions, no token: nothing here calls the
+# Kubernetes API.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eunomia
+  namespace: eunomia
+automountServiceAccountToken: false
+---
+# The jobs' account, separate from the server's (rule 2).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eunomia-job
+  namespace: eunomia
+automountServiceAccountToken: false

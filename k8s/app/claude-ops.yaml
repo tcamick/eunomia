@@ -1,0 +1,42 @@
+# Read access to the eunomia namespace for claude-ops, the account a Claude
+# session on neptune uses instead of root (defined in the Plutus repository:
+# deploy/k8s/neptune/plutus/claude-ops.yaml; AGENTS.md, Operating on
+# neptune). Modelled on beholder's k8s/claude-ops.yaml.
+#
+# It can read pods, logs, events, services, volumes, workloads and the
+# network policies. No secrets and no writes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: claude-ops
+  namespace: eunomia
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events", "services", "endpoints", "persistentvolumeclaims", "configmaps", "serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["podmonitors"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: claude-ops
+  namespace: eunomia
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: claude-ops
+subjects:
+  - kind: ServiceAccount
+    name: claude-ops
+    namespace: plutus
