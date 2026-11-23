@@ -37,7 +37,8 @@ Every flag has an environment override; a flag beats the environment. Invalid va
 ## Jobs
 | Job | What it does | Schedule on neptune |
 |---|---|---|
-| `noop` | nothing; proves the CronJob, shared volume and push path (E0) | hourly at :17 |
+| `roster` | reads the `unitedstates/congress-legislators` files (members, committees, committee seats); updates people, terms, leadership and committees, and records each arrival, departure, party switch and leadership change. Rejects a file with fewer than 500 members | daily at 10:23 UTC |
+| `portraits` | mirrors each member's photo from `unitedstates/images` into `data/portraits/`, with conditional requests; a missing photo is recorded as missing | daily at 10:53 UTC |
 
 ## Developing
 ```bash
@@ -45,7 +46,7 @@ make help             # every target
 make test lint        # race tests, golangci-lint, govulncheck
 make web-docker       # build the frontend in Node 22 (Docker) into web/dist
 make run PORT=8090    # serve this worktree's data/ on 127.0.0.1:8090 (metrics on 8091)
-make job JOB=noop     # run one job against this worktree's data/
+make job JOB=roster   # run one job against this worktree's data/ (fetches from the source)
 ```
 The binary embeds `web/dist`; without a frontend build the app's pages answer 404 and the API still works.
 

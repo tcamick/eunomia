@@ -150,13 +150,3 @@ func (r *Runner) Run(ctx context.Context, name string) error {
 	}
 	return recErr
 }
-
-// Noop does nothing. It proves the path a real job takes: a CronJob's pod
-// opens the shared volume, records its run, and pushes its gauges (E0).
-type Noop struct{}
-
-// Name is the job's registered name.
-func (Noop) Name() string { return "noop" }
-
-// Run does nothing and succeeds.
-func (Noop) Run(context.Context) error { return nil }

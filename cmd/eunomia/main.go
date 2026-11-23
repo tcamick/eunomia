@@ -178,7 +178,6 @@ const fetchPace = 500 * time.Millisecond
 func buildJobs(d deps) []jobs.Job {
 	src := legislators.NewClient(d.get, legislators.DefaultBase, legislators.MinMembers)
 	return []jobs.Job{
-		jobs.Noop{},
 		roster.NewJob(src, d.st, legislators.DefaultBase, time.Now),
 		portraits.NewJob(d.get, d.st, portraits.DefaultBase, filepath.Join(d.dataDir, portraitDir), time.Now),
 	}
