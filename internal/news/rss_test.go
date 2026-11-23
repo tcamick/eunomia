@@ -110,7 +110,7 @@ func TestParse_EnforcesTheRulesForOutsideText(t *testing.T) {
 	for _, it := range items {
 		assert.NotEmpty(t, it.Title, "an item with no headline is skipped")
 	}
-	assert.Len(t, items, 6, "eight items: one untitled, one a repeat of a guid")
+	assert.Len(t, items, 6, "six of eight items: one untitled, one a repeat of a guid")
 }
 
 func TestParsePublished_ReadsTheFeedsDateForms(t *testing.T) {

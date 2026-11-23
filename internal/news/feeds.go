@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"net/url"
 	"regexp"
+	"slices"
 	"time"
 
 	"go.yaml.in/yaml/v3"
@@ -33,8 +34,9 @@ var (
 )
 
 // LoadFeeds reads and validates sources.yaml from fsys, reporting every
-// problem at once, each naming its feed.
-func LoadFeeds(fsys fs.FS) ([]Feed, error) {
+// problem at once, each naming its feed. A feed id may not be one of
+// reserved, the other sources' names, which share its label and its row.
+func LoadFeeds(fsys fs.FS, reserved ...string) ([]Feed, error) {
 	b, err := fs.ReadFile(fsys, "sources.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("read sources.yaml: %w", err)
@@ -59,6 +61,11 @@ func LoadFeeds(fsys fs.FS) ([]Feed, error) {
 		}
 		if seen[f.ID] {
 			errs = append(errs, fmt.Errorf("%s: id is listed twice", where))
+		}
+		if slices.Contains(reserved, f.ID) {
+			// The id is the fetch metric's source label and the key of the
+			// feed's row in sources: another source's name would share both.
+			errs = append(errs, fmt.Errorf("%s: id is another source's name", where))
 		}
 		seen[f.ID] = true
 		if f.Name == "" || len(f.Name) > 60 {

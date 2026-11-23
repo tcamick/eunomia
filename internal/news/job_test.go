@@ -3,6 +3,7 @@ package news
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -284,28 +285,64 @@ func TestJob_ADateAheadOfNowIsStoredAsUnknown(t *testing.T) {
 	assert.Equal(t, "2026-11-24T08:00:00Z", byTitle["Tomorrow by a zone"].Published, "ten hours ahead is within a day: kept")
 }
 
-// A member who leaves is no longer matched, but keeps the stories that
-// named them: a departure is history, not a mistake to undo
-// (go-conventions, Provenance).
+// houseTerm is one member and their term, for seedHouse.
+type houseTerm struct {
+	id, first, last, state, start, leftOn string
+}
+
+// seedHouse seeds members of the House, each with one term from start up to
+// leftOn (empty: still sitting, to the end of the Congress).
+func seedHouse(t *testing.T, s *store.Store, at time.Time, ms ...houseTerm) {
+	t.Helper()
+	plan := store.RosterPlan{At: at, Source: "https://example.org/"}
+	for i, m := range ms {
+		district := i + 1
+		plan.People = append(plan.People, store.Person{ID: m.id, Bioguide: m.id, First: m.first, Last: m.last,
+			Display: m.first + " " + m.last, InCongress: m.leftOn == ""})
+		plan.Terms = append(plan.Terms, store.Term{Person: m.id, Office: fmt.Sprintf("house/%s/%d", m.state, district), Body: "house",
+			State: m.state, District: &district, Start: m.start, End: "2027-01-03", Party: "Independent",
+			Current: m.leftOn == "", LeftOn: m.leftOn})
+	}
+	require.NoError(t, s.ApplyRoster(context.Background(), plan), "seeding the House")
+}
+
+// storyFeed serves one feed with the given items: guid, title, RSS date.
+func storyFeed(items ...[3]string) (Feed, *fakeFeeds) {
+	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
+	body := "<rss><channel>"
+	for _, it := range items {
+		body += `<item><title>` + it[1] + `</title><link>https://www.npr.org/` + it[0] + `</link><guid>` + it[0] +
+			`</guid><pubDate>` + it[2] + `</pubDate></item>`
+	}
+	body += "</channel></rss>"
+	return feed, &fakeFeeds{bodies: map[string][]byte{feed.URL: []byte(body)}, etags: map[string]string{}, fail: map[string]error{}}
+}
+
+func mentionsByTitle(t *testing.T, s *store.Store) map[string][]store.StoryMention {
+	t.Helper()
+	rows, err := s.Stories(context.Background(), store.StoryFilter{Limit: 100})
+	require.NoError(t, err, "listing stories")
+	out := map[string][]store.StoryMention{}
+	for _, r := range rows {
+		out[r.Title] = r.Mentions
+	}
+	return out
+}
+
+// A member who leaves keeps the stories from their time in office: a
+// departure is history, not a mistake to undo (go-conventions, Provenance).
 func TestJob_AMemberWhoLeavesKeepsTheStoriesThatNamedThem(t *testing.T) {
 	t.Parallel()
 	s := openStore(t)
-	seedAnn(t, s)
 	ctx := context.Background()
-	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
-	feeds := &fakeFeeds{bodies: map[string][]byte{feed.URL: oneItem("a", "Ann Able retires", "Mon, 23 Nov 2026 20:00:00 +0000")},
-		etags: map[string]string{}, fail: map[string]error{}}
+	seedHouse(t, s, t0, houseTerm{"A000001", "Ann", "Able", "OH", "2025-01-03", ""})
+	feed, feeds := storyFeed([3]string{"a", "Ann Able retires", "Fri, 20 Nov 2026 20:00:00 +0000"})
 	now := t0
 	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return now }, nil)
 	require.NoError(t, err, "building the job")
 	require.NoError(t, j.Run(ctx), "the run that tags Ann")
 
-	require.NoError(t, s.ApplyRoster(ctx, store.RosterPlan{At: t0.Add(time.Hour), Source: "https://example.org/",
-		People: []store.Person{{ID: "A000001", Bioguide: "A000001", First: "Ann", Last: "Able", Display: "Ann Able", InCongress: false}},
-	}), "Ann leaves")
-	members, err := s.NamedMembers(ctx)
-	require.NoError(t, err, "listing the members the tagger matches")
-	require.Empty(t, members, "Ann is no longer matched, and no one else is")
+	seedHouse(t, s, t0.Add(time.Hour), houseTerm{"A000001", "Ann", "Able", "OH", "2025-01-03", "2026-11-22"})
 	now = t0.Add(2 * time.Hour)
 	require.NoError(t, j.Run(ctx), "the run after Ann left")
 
@@ -314,35 +351,55 @@ func TestJob_AMemberWhoLeavesKeepsTheStoriesThatNamedThem(t *testing.T) {
 	assert.Len(t, rows, 1, "Ann's page keeps the story")
 }
 
-// When a member whose name holds a state's leaves, the next run does not
-// start reading their name as the state.
+// A member whose name holds a state's: while sitting, the name is theirs;
+// once gone, a later story naming them tags no one, not the state.
 func TestJob_ADepartedMembersNameDoesNotBecomeAState(t *testing.T) {
 	t.Parallel()
 	s := openStore(t)
 	ctx := context.Background()
-	district := 5
-	foxx := store.Person{ID: "F000450", Bioguide: "F000450", First: "Virginia", Last: "Foxx", Display: "Virginia Foxx", InCongress: true}
-	require.NoError(t, s.ApplyRoster(ctx, store.RosterPlan{At: t0, Source: "https://example.org/",
-		People: []store.Person{foxx},
-		Terms: []store.Term{{Person: "F000450", Office: "house/NC/5", Body: "house", State: "NC", District: &district,
-			Start: "2025-01-03", End: "2027-01-03", Party: "Republican", Current: true}},
-	}), "seeding the member")
-	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
-	feeds := &fakeFeeds{bodies: map[string][]byte{feed.URL: oneItem("a", "Virginia Foxx retires", "Mon, 23 Nov 2026 20:00:00 +0000")},
-		etags: map[string]string{}, fail: map[string]error{}}
-	now := t0
-	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return now }, nil)
+	seedHouse(t, s, t0, houseTerm{"F000450", "Virginia", "Foxx", "NC", "2025-01-03", "2026-11-22"})
+	feed, feeds := storyFeed(
+		[3]string{"a", "Virginia Foxx announces retirement", "Fri, 20 Nov 2026 20:00:00 +0000"},
+		[3]string{"b", "Virginia Foxx, now retired, speaks", "Mon, 23 Nov 2026 20:00:00 +0000"})
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return t0 }, nil)
 	require.NoError(t, err, "building the job")
-	require.NoError(t, j.Run(ctx), "the run that tags the member")
+	require.NoError(t, j.Run(ctx), "running the job")
 
-	foxx.InCongress = false
-	require.NoError(t, s.ApplyRoster(ctx, store.RosterPlan{At: t0.Add(time.Hour), Source: "https://example.org/",
-		People: []store.Person{foxx}}), "the member leaves")
-	now = t0.Add(2 * time.Hour)
-	require.NoError(t, j.Run(ctx), "the run after the member left")
+	got := mentionsByTitle(t, s)
+	assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "F000450", Name: "Virginia Foxx"}},
+		got["Virginia Foxx announces retirement"], "while sitting: the member")
+	assert.Empty(t, got["Virginia Foxx, now retired, speaks"], "after leaving: no one, and not Virginia")
+}
 
-	for id, ms := range allMentions(t, s) {
-		assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "F000450", Name: "Virginia Foxx"}}, ms,
-			"story %d keeps the person and gains no state", id)
-	}
+// A title and surname are read against the members sitting the day the
+// story ran, so a change of members never moves an old story to someone
+// else (ADR 0008).
+func TestJob_ATitleIsReadAgainstTheMembersSittingWhenTheStoryRan(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	ctx := context.Background()
+	seedHouse(t, s, t0,
+		houseTerm{"D000101", "Dan", "Davis", "OH", "2025-01-03", ""},
+		houseTerm{"D000102", "Dee", "Davis", "TX", "2025-01-03", "2026-11-21"},
+		houseTerm{"S000101", "Sal", "Smith", "CA", "2025-01-03", "2026-11-21"},
+		houseTerm{"S000102", "Sue", "Smith", "NV", "2026-11-21", ""},
+	)
+	feed, feeds := storyFeed(
+		[3]string{"a", "Rep. Davis objects", "Fri, 20 Nov 2026 20:00:00 +0000"},
+		[3]string{"b", "Rep. Davis objects again", "Sun, 22 Nov 2026 20:00:00 +0000"},
+		[3]string{"c", "Rep. Smith speaks", "Fri, 20 Nov 2026 20:00:00 +0000"},
+		[3]string{"d", "Rep. Smith speaks again", "Sun, 22 Nov 2026 20:00:00 +0000"})
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return t0 }, nil)
+	require.NoError(t, err, "building the job")
+	require.NoError(t, j.Run(ctx), "running the job")
+	require.NoError(t, j.Run(ctx), "and again: the same answer")
+
+	got := mentionsByTitle(t, s)
+	assert.Empty(t, got["Rep. Davis objects"], "two Davises sat that day: no one")
+	assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "D000101", Name: "Dan Davis"}}, got["Rep. Davis objects again"],
+		"one Davis sat that day")
+	assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "S000101", Name: "Sal Smith"}}, got["Rep. Smith speaks"],
+		"the Smith sitting that day")
+	assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "S000102", Name: "Sue Smith"}}, got["Rep. Smith speaks again"],
+		"the new Smith, for a story after the change")
 }

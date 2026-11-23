@@ -92,7 +92,7 @@ func TestStories_FiltersAndOrder(t *testing.T) {
 	t.Parallel()
 	s := open(t)
 	ctx := context.Background()
-	// A sitting Ohio senator, so a story naming them is an Ohio story.
+	// A sitting member for Ohio, so a story naming them is an Ohio story.
 	require.NoError(t, s.ApplyRoster(ctx, onePlan(t0)), "seeding a member (A000001, Ohio)")
 	ids, err := s.AddStories(ctx, "politics", politicsFeed, t0, []NewStory{
 		story("old", "https://news.example/old", "Old", t0.Add(-2*time.Hour)),
@@ -191,15 +191,23 @@ func TestSetMarks_SetsClearsAndKeeps(t *testing.T) {
 	assert.Equal(t, 1, count(t, s, "SELECT count(*) FROM marks"), "and not written")
 }
 
-func TestNamedMembers_ListsSittingMembersWithTheirNamesAndSeat(t *testing.T) {
+func TestNamedTerms_ListsTheTermsRunningSinceADayWithNamesAndSeat(t *testing.T) {
 	t.Parallel()
 	s := open(t)
 	ctx := context.Background()
 	require.NoError(t, s.ApplyRoster(ctx, onePlan(t0)), "seeding a member")
-	got, err := s.NamedMembers(ctx)
-	require.NoError(t, err, "listing members for tagging")
-	assert.Equal(t, []NamedMember{{ID: "A000001", First: "Ann", Last: "Able", Display: "Ann Able", Body: "house", State: "OH"}},
-		got, "the sitting member with her names and seat")
+	got, err := s.NamedTerms(ctx, t0)
+	require.NoError(t, err, "listing terms for tagging")
+	assert.Equal(t, []NamedTerm{{
+		NamedMember: NamedMember{ID: "A000001", First: "Ann", Last: "Able", Display: "Ann Able", Body: "house", State: "OH"},
+		Start:       "2025-01-03", End: "2027-01-03",
+	}}, got, "the running term with the member's names and seat")
+	got, err = s.NamedTerms(ctx, time.Date(2027, 1, 3, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err, "listing terms from the day it ends")
+	assert.Empty(t, got, "a term over by then is left out")
+	people, err := s.PeopleNames(ctx)
+	require.NoError(t, err, "listing everyone's names")
+	assert.Equal(t, []NamedMember{{ID: "A000001", First: "Ann", Last: "Able", Display: "Ann Able"}}, people, "names only")
 }
 
 func ptrBool(b bool) *bool { return &b }

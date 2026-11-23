@@ -45,11 +45,16 @@ func TestLoadFeeds_RefusesABadListAndNamesEveryProblem(t *testing.T) {
 			want: []string{"listed twice"},
 		},
 		"no feeds": {yaml: "feeds: []\n", want: []string{"no feeds"}},
+		"another source's name": {
+			yaml: "feeds:\n" +
+				"  - {id: portraits, name: A, url: 'https://a.example/rss', site: a.example, label: L, source: 'https://a.example', checked: 2026-11-23}\n",
+			want: []string{"another source's name"},
+		},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			_, err := LoadFeeds(fstest.MapFS{"sources.yaml": {Data: []byte(tc.yaml)}})
+			_, err := LoadFeeds(fstest.MapFS{"sources.yaml": {Data: []byte(tc.yaml)}}, "legislators", "portraits")
 			require.Error(t, err, "loading a bad list")
 			for _, w := range tc.want {
 				assert.Contains(t, err.Error(), w, "the error names the problem")

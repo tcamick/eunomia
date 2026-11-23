@@ -88,11 +88,14 @@ func addStory(ctx context.Context, tx *sql.Tx, feed, source, fetched string, it 
 	return id, true, err
 }
 
-// StoryText is what tagging reads of a story.
+// StoryText is what tagging reads of a story. When is its publication time,
+// or its fetch time without one (RFC 3339, UTC): a story is read against the
+// members who sat that day.
 type StoryText struct {
 	ID      int64
 	Title   string
 	Summary string
+	When    string
 }
 
 // StoriesSince lists the stories published (or, without a time, fetched)
@@ -100,10 +103,11 @@ type StoryText struct {
 func (s *Store) StoriesSince(ctx context.Context, since time.Time) ([]StoryText, error) {
 	var out []StoryText
 	err := eachRow(ctx, s.db, `
-		SELECT id, title, summary FROM stories WHERE COALESCE(published, fetched_at) >= ? ORDER BY id`,
+		SELECT id, title, summary, COALESCE(published, fetched_at) FROM stories
+		WHERE COALESCE(published, fetched_at) >= ? ORDER BY id`,
 		func(r *sql.Rows) error {
 			var x StoryText
-			if err := r.Scan(&x.ID, &x.Title, &x.Summary); err != nil {
+			if err := r.Scan(&x.ID, &x.Title, &x.Summary, &x.When); err != nil {
 				return err
 			}
 			out = append(out, x)
@@ -115,56 +119,70 @@ func (s *Store) StoriesSince(ctx context.Context, since time.Time) ([]StoryText,
 	return out, nil
 }
 
-// NamedMember is a sitting member as tagging matches them: the names the
-// source gives, and the seat.
+// NamedMember is a member as tagging matches them: the names the source
+// gives, and (for a term) the seat.
 type NamedMember struct {
 	ID       string
 	First    string
 	Nickname string
 	Last     string
 	Display  string
-	Body     string // "senate" or "house"
+	Body     string // "senate" or "house"; empty from PeopleNames
 	State    string
 }
 
-// NamedMembers lists the sitting members with their names, for tagging.
-func (s *Store) NamedMembers(ctx context.Context) ([]NamedMember, error) {
-	var out []NamedMember
+// NamedTerm is a member's term as tagging reads it: who sat, for which
+// seat, from Start up to (not including) End, both YYYY-MM-DD. End is the
+// day the source stopped listing the member, if earlier than the
+// scheduled end.
+type NamedTerm struct {
+	NamedMember
+	Start string
+	End   string
+}
+
+// NamedTerms lists the terms that were running on any day since since,
+// so a story is read against the members who sat when it ran: "Rep.
+// Davis" in a December story means a December Davis. A term the source
+// withdrew as a correction is left out.
+func (s *Store) NamedTerms(ctx context.Context, since time.Time) ([]NamedTerm, error) {
+	var out []NamedTerm
 	err := eachRow(ctx, s.db, `
-		SELECT p.id, p.first_name, COALESCE(p.nickname, ''), p.last_name, p.display_name, t.body, t.state
-		FROM people p JOIN terms t ON t.person = p.id AND t.current = 1 AND t.unlisted_on IS NULL
-		WHERE p.in_congress = 1
-		ORDER BY p.id`, func(r *sql.Rows) error {
-		var m NamedMember
-		if err := r.Scan(&m.ID, &m.First, &m.Nickname, &m.Last, &m.Display, &m.Body, &m.State); err != nil {
+		SELECT p.id, p.first_name, COALESCE(p.nickname, ''), p.last_name, p.display_name, t.body, t.state,
+		       t.start, substr(COALESCE(t.left_on, t."end"), 1, 10) AS until
+		FROM people p JOIN terms t ON t.person = p.id
+		WHERE t.unlisted_on IS NULL AND substr(COALESCE(t.left_on, t."end"), 1, 10) > ?
+		ORDER BY p.id, t.start`, func(r *sql.Rows) error {
+		var m NamedTerm
+		if err := r.Scan(&m.ID, &m.First, &m.Nickname, &m.Last, &m.Display, &m.Body, &m.State, &m.Start, &m.End); err != nil {
 			return err
 		}
 		out = append(out, m)
 		return nil
-	})
+	}, since.UTC().Format(time.DateOnly))
 	if err != nil {
-		return nil, fmt.Errorf("list members for tagging: %w", err)
+		return nil, fmt.Errorf("list terms for tagging: %w", err)
 	}
 	return out, nil
 }
 
-// FormerMembers lists everyone in people who no longer sits, with their
-// names only: the tagger blanks these names out so that "Virginia Foxx"
-// is never taken for Virginia after the member leaves, but tags no one by them.
-func (s *Store) FormerMembers(ctx context.Context) ([]NamedMember, error) {
+// PeopleNames lists everyone in people with their names only. The tagger
+// blanks out the names of those not sitting on a story's day, so "Virginia
+// Foxx" is never taken for Virginia, but tags no one by them.
+func (s *Store) PeopleNames(ctx context.Context) ([]NamedMember, error) {
 	var out []NamedMember
 	err := eachRow(ctx, s.db, `
-		SELECT id, first_name, COALESCE(nickname, ''), last_name, display_name
-		FROM people WHERE in_congress = 0 ORDER BY id`, func(r *sql.Rows) error {
-		var m NamedMember
-		if err := r.Scan(&m.ID, &m.First, &m.Nickname, &m.Last, &m.Display); err != nil {
-			return err
-		}
-		out = append(out, m)
-		return nil
-	})
+		SELECT id, first_name, COALESCE(nickname, ''), last_name, display_name FROM people ORDER BY id`,
+		func(r *sql.Rows) error {
+			var m NamedMember
+			if err := r.Scan(&m.ID, &m.First, &m.Nickname, &m.Last, &m.Display); err != nil {
+				return err
+			}
+			out = append(out, m)
+			return nil
+		})
 	if err != nil {
-		return nil, fmt.Errorf("list former members: %w", err)
+		return nil, fmt.Errorf("list people for tagging: %w", err)
 	}
 	return out, nil
 }

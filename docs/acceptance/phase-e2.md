@@ -59,6 +59,14 @@ All fixed:
 3. The Democracy Now fixture's three article bodies are replaced by a one-line placeholder; the README says so.
 Nits: the backup's stale-lock comment names the half-hour deadline. On the last line's "missing disk": with seabass unplugged the pod cannot start, so the status page shows the backup *Never ran / Overdue* (26 hours after its last success); with the disk present but the marker gone, *Failed*. Both are a failed backup on the status page; the live check records which it saw.
 
+## Review findings (fourth pass, 2026-11-23)
+All fixed:
+1. *Blocking:* retagging read 30-day-old stories against today's roster, so at a change of members "Rep. Davis" could move to whichever Davis remained, or gain the new Smith beside the old. Each story is now read against the members sitting on the day it ran (`store.NamedTerms`, a term from its start up to its end or the day the member left); everyone else's names are blanked, not tagged. `TestJob_ATitleIsReadAgainstTheMembersSittingWhenTheStoryRan` covers both cases (it would fail on the earlier code: the 20 November "Rep. Davis" story would have gone to the remaining Davis). ADR 0008 amended. Real-data run after the change: 35 mentions, and a second run changes none.
+2. *Blocking:* the oversized-marks-body case failed on an unknown field, not its size. The body is now valid JSON padded with spaces; with the size limit removed, the case fails (checked).
+3. A full name a sitting member shares with anyone else in the roster tags no one: `TestTag_ANameASittingMemberSharesWithAFormerOneTagsNoOne`.
+4. The looked-at checks: Sanders's page at 360 px is recorded below; the "In the news" sections on member and state pages are the same `StoryList` component keyboard-checked on `/news`, with the same controls.
+Nits: a feed id may not be another source's name (`legislators`, `committees`, `committee-membership`, `portraits`), with a test; a test comment and a test message corrected.
+
 ## Review findings not fixed, and why
 -
 
@@ -71,4 +79,6 @@ Nits: the backup's stale-lock comment names the half-hour deadline. On the last 
 - News at 1280 px, dark; the status page at 1280 px dark and at 200% · Claude · 2026-11-23 · headless Chrome
 - Vermont's page at 360 px and 200%, Sanders's page at 1280 px dark and 200%: "In the news" wraps, its link reads above the list · Claude · 2026-11-23 · headless Chrome
 - Keyboard only, the news page · Claude · 2026-11-23 · headless Chrome driven over the DevTools protocol with real key events: 24 tab stops in reading order (skip link, sections, the two filters, the two checkboxes, then each headline, Mark read, Save), every one with a visible focus ring; Space on "Mark read" sets it (`aria-pressed="true"`) and announces "Marked read", again clears it ("Marked unread"); Space on "Unread only" filters and puts `?unread=1` in the address
+- Sanders's page at 360 px, light: "In the news", its link and the source lines wrap, no sideways scroll · Claude · 2026-11-23 · headless Chrome
+- Keyboard on the member and state pages' "In the news": the same `StoryList` (headline link, mention links, Read and Save buttons) as `/news`, checked there; the section adds one link above the list · Claude · 2026-11-23 · by reading the components
 - The owner's phone, and keyboard on the owner's own laptop: pending, the owner, after the deploy

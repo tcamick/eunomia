@@ -163,7 +163,7 @@ func TestMarks_RefusesWhatIsNotAMark(t *testing.T) {
 		"nothing to set":                        {path: "/api/stories/7/marks", contentType: "application/json", body: `{}`, want: http.StatusBadRequest},
 		"a story that does not exist":           {path: "/api/stories/8/marks", contentType: "application/json", body: `{"read":true}`, want: http.StatusNotFound},
 		"an id that is no number":               {path: "/api/stories/x/marks", contentType: "application/json", body: `{"read":true}`, want: http.StatusNotFound},
-		"a body far larger than any mark":       {path: "/api/stories/7/marks", contentType: "application/json", body: `{"read":true,"x":"` + strings.Repeat("y", 4096) + `"}`, want: http.StatusBadRequest},
+		"a body far larger than any mark":       {path: "/api/stories/7/marks", contentType: "application/json", body: `{"read":true` + strings.Repeat(" ", 4096) + `}`, want: http.StatusBadRequest}, // valid but for its size
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {

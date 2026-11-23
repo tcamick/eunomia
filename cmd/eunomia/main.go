@@ -193,7 +193,8 @@ func fetchSources(feeds []news.Feed) []string {
 // loadFeeds reads and validates config/sources.yaml (embedded); a bad list
 // stops the process at startup (AGENTS.md, Structure rules).
 func loadFeeds() ([]news.Feed, error) {
-	feeds, err := news.LoadFeeds(curated.FS)
+	feeds, err := news.LoadFeeds(curated.FS,
+		legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership, portraits.Source)
 	if err != nil {
 		return nil, fmt.Errorf("config/sources.yaml: %w", err)
 	}

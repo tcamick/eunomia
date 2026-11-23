@@ -34,8 +34,8 @@ type Store interface {
 	SourceState(ctx context.Context, source string) (store.SourceState, bool, error)
 	RecordSourceCheck(ctx context.Context, st store.SourceState, changed bool) error
 	AddStories(ctx context.Context, feed, source string, at time.Time, items []store.NewStory) ([]int64, error)
-	NamedMembers(ctx context.Context) ([]store.NamedMember, error)
-	FormerMembers(ctx context.Context) ([]store.NamedMember, error)
+	NamedTerms(ctx context.Context, since time.Time) ([]store.NamedTerm, error)
+	PeopleNames(ctx context.Context) ([]store.NamedMember, error)
 	StoriesSince(ctx context.Context, since time.Time) ([]store.StoryText, error)
 	ReplaceMentions(ctx context.Context, want map[int64][]store.Mention, matchable map[string]bool) (int, error)
 }
@@ -147,32 +147,64 @@ func (j *Job) readFeed(ctx context.Context, f Feed) (int, error) {
 	return len(added), j.st.RecordSourceCheck(ctx, check, len(added) > 0)
 }
 
-// retag recomputes the mentions of the last TagWindow's stories against
-// the roster as it is now, writing only the differences.
+// retag recomputes the mentions of the last TagWindow's stories, writing
+// only the differences. Each story is read against the members who sat on
+// the day it ran (ADR 0008): "Rep. Davis" in a December story means a
+// December Davis, whoever sits in January.
 func (j *Job) retag(ctx context.Context) (int, error) {
-	members, err := j.st.NamedMembers(ctx)
+	since := j.now().Add(-TagWindow)
+	terms, err := j.st.NamedTerms(ctx, since)
 	if err != nil {
 		return 0, err
 	}
-	former, err := j.st.FormerMembers(ctx)
+	people, err := j.st.PeopleNames(ctx)
 	if err != nil {
 		return 0, err
 	}
-	stories, err := j.st.StoriesSince(ctx, j.now().Add(-TagWindow))
+	stories, err := j.st.StoriesSince(ctx, since)
 	if err != nil {
 		return 0, err
 	}
-	m := tagging.New(members, former)
+	matchers := map[string]*tagging.Matcher{}
+	// Only a person some day's matcher could find may lose a mention: one
+	// whose time in office is outside the window keeps the stories that
+	// named them, and an empty roster removes no one.
+	matchable := map[string]bool{}
 	want := make(map[int64][]store.Mention, len(stories))
 	for _, s := range stories {
+		day := s.When[:min(len(s.When), len(time.DateOnly))]
+		m, ok := matchers[day]
+		if !ok {
+			members := sittingOn(terms, day)
+			for _, mb := range members {
+				matchable[mb.ID] = true
+			}
+			m = tagging.New(members, people)
+			matchers[day] = m
+		}
 		want[s.ID] = m.Tag(s.Title + "\n" + s.Summary)
 	}
-	// Only the people the tagger can find may lose a mention: one who has
-	// left keeps the stories that named them, and an empty roster removes
-	// no one.
-	matchable := make(map[string]bool, len(members))
-	for _, mb := range members {
-		matchable[mb.ID] = true
-	}
 	return j.st.ReplaceMentions(ctx, want, matchable)
+}
+
+// sittingOn returns the members whose term ran on day (YYYY-MM-DD): from its
+// start up to, not including, its end. Each member once: on the day one
+// term ends and the next begins, the new one.
+func sittingOn(terms []store.NamedTerm, day string) []store.NamedMember {
+	byID := map[string]store.NamedMember{}
+	var order []string
+	for _, t := range terms {
+		if t.Start > day || day >= t.End {
+			continue
+		}
+		if _, seen := byID[t.ID]; !seen {
+			order = append(order, t.ID)
+		}
+		byID[t.ID] = t.NamedMember
+	}
+	out := make([]store.NamedMember, 0, len(order))
+	for _, id := range order {
+		out = append(out, byID[id])
+	}
+	return out
 }

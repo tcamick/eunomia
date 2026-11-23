@@ -95,3 +95,14 @@ func TestTag_AFormerMembersNameTagsNoOne(t *testing.T) {
 	assert.Nil(t, m.Tag("Virginia Foxx retired."), "neither the person nor Virginia")
 	assert.Equal(t, []store.Mention{state("VA")}, m.Tag("Virginia Foxx spoke in Virginia."), "the state, named on its own, still is")
 }
+
+// A full name a sitting member shares with someone who is not sitting names
+// no one: the story may be about either.
+func TestTag_ANameASittingMemberSharesWithAFormerOneTagsNoOne(t *testing.T) {
+	t.Parallel()
+	sitting := []store.NamedMember{{ID: "R000001", First: "Sam", Last: "Roe", Display: "Sam Roe", Body: "house", State: "OH"}}
+	former := store.NamedMember{ID: "R000002", First: "Sam", Last: "Roe", Display: "Sam Roe"}
+	m := New(sitting, []store.NamedMember{former, sitting[0]})
+	assert.Nil(t, m.Tag("Sam Roe spoke."), "either Sam Roe")
+	assert.Equal(t, []store.Mention{person("R000001")}, m.Tag("Rep. Roe spoke."), "the title still finds the one sitting Roe")
+}

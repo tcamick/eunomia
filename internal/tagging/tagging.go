@@ -44,21 +44,25 @@ type Matcher struct {
 	surnames  map[string]map[string][]string // body → surname → members
 	stateOf   map[string]string              // member → state code
 	places    []place                        // longest name first
-	masks     []string                       // former members' names: blanked, never tagged; longest first
+	masks     []string                       // others' names: blanked, never tagged; longest first
 }
 
-// New builds a matcher from the sitting members. A full name two members
-// share names neither. Former members' names are blanked out before states
-// and titles are looked for, so "Virginia Foxx" never tags Virginia after
-// the member has left, but they tag no one.
-func New(members, former []store.NamedMember) *Matcher {
+// New builds a matcher from the members sitting on a story's day. Everyone
+// else in people (others may include the members; they are skipped) is a
+// name to blank out before states and titles are looked for, so "Virginia
+// Foxx" never tags Virginia when the member is not sitting, but tags no
+// one. A full name a member shares with anyone else, sitting or not, names
+// no one: a miss before a wrong link (ADR 0008).
+func New(members, others []store.NamedMember) *Matcher {
 	m := &Matcher{
 		fullNames: map[string]string{},
 		surnames:  map[string]map[string][]string{},
 		stateOf:   map[string]string{},
 	}
 	shared := map[string]bool{}
+	sitting := map[string]bool{}
 	for _, p := range members {
+		sitting[p.ID] = true
 		m.stateOf[p.ID] = p.State
 		for _, name := range fullNames(p) {
 			if other, ok := m.fullNames[name]; ok && other != p.ID {
@@ -73,38 +77,45 @@ func New(members, former []store.NamedMember) *Matcher {
 			m.surnames[p.Body][p.Last] = append(m.surnames[p.Body][p.Last], p.ID)
 		}
 	}
-	for name := range shared {
-		delete(m.fullNames, name)
-	}
-	for name := range m.fullNames {
-		m.nameOrder = append(m.nameOrder, name)
-	}
-	sort.Slice(m.nameOrder, func(a, b int) bool {
-		if len(m.nameOrder[a]) != len(m.nameOrder[b]) {
-			return len(m.nameOrder[a]) > len(m.nameOrder[b])
+	masks := map[string]bool{}
+	for _, p := range others {
+		if sitting[p.ID] {
+			continue
 		}
-		return m.nameOrder[a] < m.nameOrder[b]
-	})
-	seen := map[string]bool{}
-	for _, p := range former {
 		for _, name := range fullNames(p) {
-			if !seen[name] {
-				seen[name] = true
-				m.masks = append(m.masks, name)
+			masks[name] = true
+			if _, ok := m.fullNames[name]; ok {
+				shared[name] = true
 			}
 		}
 	}
-	sort.Slice(m.masks, func(a, b int) bool {
-		if len(m.masks[a]) != len(m.masks[b]) {
-			return len(m.masks[a]) > len(m.masks[b])
-		}
-		return m.masks[a] < m.masks[b]
-	})
+	for name := range shared {
+		delete(m.fullNames, name)
+		masks[name] = true
+	}
+	m.nameOrder = longestFirst(m.fullNames)
+	m.masks = longestFirst(masks)
 	for _, j := range geo.All() {
 		m.places = append(m.places, place{name: j.Name, code: j.Code})
 	}
 	sort.Slice(m.places, func(a, b int) bool { return len(m.places[a].name) > len(m.places[b].name) })
 	return m
+}
+
+// longestFirst returns a map's keys, longest first, then alphabetical, so
+// matching is deterministic and a longer name wins over one inside it.
+func longestFirst[V any](set map[string]V) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Slice(out, func(a, b int) bool {
+		if len(out[a]) != len(out[b]) {
+			return len(out[a]) > len(out[b])
+		}
+		return out[a] < out[b]
+	})
+	return out
 }
 
 // fullNames are the forms of a member's name a story might use: the
