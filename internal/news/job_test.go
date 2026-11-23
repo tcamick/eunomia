@@ -95,6 +95,13 @@ func TestJob_StoresEachFeedAndAnUnchangedFeedCostsOneRequestAndWritesNothing(t *
 		rows, err := s.Stories(ctx, store.StoryFilter{Feed: f.ID, Limit: 100})
 		require.NoError(t, err, "listing %s", f.ID)
 		assert.NotEmpty(t, rows, "%s has stories", f.ID)
+		for _, r := range rows {
+			if r.Feed != f.ID {
+				continue // first seen in another feed (NPR's two share stories)
+			}
+			assert.Equal(t, f.URL, r.Source, "story %d's source is its feed", r.ID)
+			assert.Equal(t, t0.Format(time.RFC3339), r.FetchedAt, "and it was fetched in this run")
+		}
 	}
 	assert.InDelta(t, 3, testutil.ToFloat64(j.added.WithLabelValues("democracy-now")), 0, "the counter counts what was stored")
 
@@ -275,4 +282,34 @@ func TestJob_ADateAheadOfNowIsStoredAsUnknown(t *testing.T) {
 	}
 	assert.Empty(t, byTitle["From the future"].Published, "a date years ahead is unknown")
 	assert.Equal(t, "2026-11-24T08:00:00Z", byTitle["Tomorrow by a zone"].Published, "ten hours ahead is within a day: kept")
+}
+
+// A member who leaves is no longer matched, but keeps the stories that
+// named them: a departure is history, not a mistake to undo
+// (go-conventions, Provenance).
+func TestJob_AMemberWhoLeavesKeepsTheStoriesThatNamedThem(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	seedAnn(t, s)
+	ctx := context.Background()
+	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
+	feeds := &fakeFeeds{bodies: map[string][]byte{feed.URL: oneItem("a", "Ann Able retires", "Mon, 23 Nov 2026 20:00:00 +0000")},
+		etags: map[string]string{}, fail: map[string]error{}}
+	now := t0
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return now }, nil)
+	require.NoError(t, err, "building the job")
+	require.NoError(t, j.Run(ctx), "the run that tags Ann")
+
+	require.NoError(t, s.ApplyRoster(ctx, store.RosterPlan{At: t0.Add(time.Hour), Source: "https://example.org/",
+		People: []store.Person{{ID: "A000001", Bioguide: "A000001", First: "Ann", Last: "Able", Display: "Ann Able", InCongress: false}},
+	}), "Ann leaves")
+	members, err := s.NamedMembers(ctx)
+	require.NoError(t, err, "listing the members the tagger matches")
+	require.Empty(t, members, "Ann is no longer matched, and no one else is")
+	now = t0.Add(2 * time.Hour)
+	require.NoError(t, j.Run(ctx), "the run after Ann left")
+
+	rows, err := s.Stories(ctx, store.StoryFilter{Person: "A000001"})
+	require.NoError(t, err, "listing Ann's stories")
+	assert.Len(t, rows, 1, "Ann's page keeps the story")
 }

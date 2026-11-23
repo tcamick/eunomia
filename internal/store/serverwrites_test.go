@@ -90,7 +90,7 @@ func TestServer_ServingPagesWritesNothingAndAMarkWritesOnlyMarks(t *testing.T) {
 	ids, err := st.AddStories(ctx, "npr-politics", "https://feeds.example/rss", t0,
 		[]store.NewStory{{GUID: "g", URL: "https://news.example/a", Title: "Ann Able votes", Summary: "In Ohio.", Published: t0}})
 	require.NoError(t, err, "seeding a story")
-	_, err = st.ReplaceMentions(ctx, map[int64][]store.Mention{ids[0]: {{Kind: "person", Ref: "A000001"}}})
+	_, err = st.ReplaceMentions(ctx, map[int64][]store.Mention{ids[0]: {{Kind: "person", Ref: "A000001"}}}, nil)
 	require.NoError(t, err, "seeding a mention")
 
 	h, err := httpapi.New(httpapi.Options{Store: st, Roster: st, UI: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},

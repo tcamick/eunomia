@@ -77,6 +77,20 @@ func TestRestoreCheck_OpensACopyOfTheNewestBackupAndLeavesTheBackupAlone(t *test
 	assert.Equal(t, "sqlite", string(b), "the backup itself is unchanged")
 }
 
+// The backup copies any finished file, dotfiles included (a temp file an
+// older portraits job left behind); the check counts the same way, or every
+// drill would fail on a good backup.
+func TestRestoreCheck_ADotfileTheBackupCopiedIsCounted(t *testing.T) {
+	t.Parallel()
+	data, dest := fixture(t)
+	write(t, filepath.Join(data, "portraits", ".portrait-123"), "left by a killed pod")
+	require.NoError(t, job(data, dest, &fakeDB{}).Run(context.Background()), "taking a backup")
+	require.FileExists(t, filepath.Join(dest, "2026-11-16", "portraits", ".portrait-123"), "the backup copied it")
+	o := &opener{v: &fakeVerifier{counts: goodCounts()}}
+
+	require.NoError(t, check(dest, o, t.TempDir()).Run(context.Background()), "the check agrees with the manifest")
+}
+
 func TestRestoreCheck_Fails(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {

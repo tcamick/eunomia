@@ -12,7 +12,7 @@ A story should appear on the page of each member of Congress and each state it n
 - **A state's full name tags it,** longest names first, so "West Virginia" is not also "Virginia". A name followed by "City" is the city, not the state. "Washington", "Georgia" and "New York" tag the state only as "<name> state" or "state of <name>".
 - **Members' names are found first and blanked out,** so a state's name inside a member's name is not taken for the state.
 - A story's state page shows stories that name the state or any member who sits for it now; a member's page, stories that name them.
-- Mentions are recomputed for every story of the last 30 days on each news run, writing only the differences, so a change in the roster (a new member, a departure) reaches recent stories.
+- Mentions are recomputed for every story of the last 30 days on each news run, writing only the differences, so a new member reaches recent stories. A run removes a person's mention only while the tagger can still find that person: a member who leaves keeps the stories that named them (go-conventions, Provenance), and an empty roster removes no one (amended 2026-11-23, at review: the first version would have dropped every departing member's last month on 2027-01-03).
 
 ## Rejected
 - **Surnames alone,** or titles with ambiguous surnames: "Johnson" and "Scott" each name two or more members.

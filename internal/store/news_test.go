@@ -104,7 +104,7 @@ func TestStories_FiltersAndOrder(t *testing.T) {
 	_, err = s.ReplaceMentions(ctx, map[int64][]Mention{
 		ids[1]: {{Kind: "person", Ref: "A000001"}},
 		ids[2]: {{Kind: "state", Ref: "OH"}},
-	})
+	}, nil)
 	require.NoError(t, err, "tagging")
 	_, ok, err := s.SetMarks(ctx, ids[0], ptrBool(true), ptrBool(true), t0)
 	require.NoError(t, err, "marking the old story")
@@ -137,15 +137,36 @@ func TestReplaceMentions_WritesOnlyTheDifferences(t *testing.T) {
 	ids, err := s.AddStories(ctx, "politics", politicsFeed, t0, []NewStory{story("g", "", "T", t0)})
 	require.NoError(t, err, "adding a story")
 	oh, ca := Mention{Kind: "state", Ref: "OH"}, Mention{Kind: "state", Ref: "CA"}
-	n, err := s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: {oh}})
+	n, err := s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: {oh}}, nil)
 	require.NoError(t, err, "the first tagging")
 	assert.Equal(t, 1, n, "one mention added")
-	n, err = s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: {oh}})
+	n, err = s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: {oh}}, nil)
 	require.NoError(t, err, "the same tagging again")
 	assert.Zero(t, n, "nothing written")
-	n, err = s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: {ca}})
+	n, err = s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: {ca}}, nil)
 	require.NoError(t, err, "a changed tagging")
 	assert.Equal(t, 2, n, "one dropped, one added")
+}
+
+func TestReplaceMentions_RemovesAPersonOnlyIfTheTaggerCouldStillFindThem(t *testing.T) {
+	t.Parallel()
+	s := open(t)
+	ctx := context.Background()
+	ids, err := s.AddStories(ctx, "politics", politicsFeed, t0, []NewStory{story("g", "", "T", t0)})
+	require.NoError(t, err, "adding a story")
+	sitting, left := Mention{Kind: "person", Ref: "A000001"}, Mention{Kind: "person", Ref: "B000002"}
+	_, err = s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: {sitting, left}}, nil)
+	require.NoError(t, err, "tagging both")
+
+	n, err := s.ReplaceMentions(ctx, map[int64][]Mention{ids[0]: nil}, map[string]bool{"A000001": true})
+	require.NoError(t, err, "retagging with only A000001 on the roster")
+	assert.Equal(t, 1, n, "one mention dropped")
+	rows, err := s.Stories(ctx, StoryFilter{Person: "B000002"})
+	require.NoError(t, err, "listing the departed member's stories")
+	assert.Len(t, rows, 1, "a member no longer matched keeps the story")
+	rows, err = s.Stories(ctx, StoryFilter{Person: "A000001"})
+	require.NoError(t, err, "listing the sitting member's stories")
+	assert.Empty(t, rows, "a sitting member the text no longer names loses it")
 }
 
 func TestSetMarks_SetsClearsAndKeeps(t *testing.T) {

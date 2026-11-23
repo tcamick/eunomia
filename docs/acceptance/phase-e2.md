@@ -44,6 +44,14 @@ All fixed:
 14. The looked-at checks are recorded below.
 Nits: the roadmap row, a comment on why `cronjobs_test.go` reads `k8s/`, and the state page's link text (now "See them all", placed above the list so it is not read as a source line).
 
+## Review findings (second pass, 2026-11-23)
+All fixed:
+1. *Blocking:* retagging deleted the mentions of any member who left, since only sitting members are matched: on 2027-01-03 every departing member would have lost their last month of stories. `ReplaceMentions` now removes a person's mention only for people the tagger can still find; an empty roster removes none. `TestJob_AMemberWhoLeavesKeepsTheStoriesThatNamedThem` and `TestReplaceMentions_RemovesAPersonOnlyIfTheTaggerCouldStillFindThem`; ADR 0008 amended.
+2. The restore check skipped dotfiles that the backup copies and counts, so a stray temp file would have failed every drill on a good backup. It now counts the same files; `TestRestoreCheck_ADotfileTheBackupCopiedIsCounted`.
+3. The news job's test asserts each story's `source` (its feed's URL) and `fetched_at` (the run's time).
+4. The looked-at checks are completed below, keyboard included.
+Nits: the plan's marks route and the news schedule (plan and PRD: every 30 minutes, dated) are amended; go-conventions' hermetic-test rule now allows reading the repository's own files, read only.
+
 ## Review findings not fixed, and why
 -
 
@@ -53,4 +61,7 @@ Nits: the roadmap row, a comment on why `cronjobs_test.go` reads `k8s/`, and the
 - News at 200% (a 640 px window at device scale 2): wraps, no sideways scroll · Claude · 2026-11-23 · headless Chrome
 - Status page with a failed backup and a job that never ran, at 360 and 1280 px · Claude · 2026-11-23 · headless Chrome
 - Reduced motion: the new pages add no animation or transition · Claude · 2026-11-23 · by reading the components
-- Keyboard only (filters, headline links, mention chips, Read/Save, More) and the owner's phone: pending, the owner, after the deploy
+- News at 1280 px, dark; the status page at 1280 px dark and at 200% · Claude · 2026-11-23 · headless Chrome
+- Vermont's page at 360 px and 200%, Sanders's page at 1280 px dark and 200%: "In the news" wraps, its link reads above the list · Claude · 2026-11-23 · headless Chrome
+- Keyboard only, the news page · Claude · 2026-11-23 · headless Chrome driven over the DevTools protocol with real key events: 24 tab stops in reading order (skip link, sections, the two filters, the two checkboxes, then each headline, Mark read, Save), every one with a visible focus ring; Space on "Mark read" sets it (`aria-pressed="true"`) and announces "Marked read", again clears it ("Marked unread"); Space on "Unread only" filters and puts `?unread=1` in the address
+- The owner's phone, and keyboard on the owner's own laptop: pending, the owner, after the deploy

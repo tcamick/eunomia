@@ -36,7 +36,7 @@ type Store interface {
 	AddStories(ctx context.Context, feed, source string, at time.Time, items []store.NewStory) ([]int64, error)
 	NamedMembers(ctx context.Context) ([]store.NamedMember, error)
 	StoriesSince(ctx context.Context, since time.Time) ([]store.StoryText, error)
-	ReplaceMentions(ctx context.Context, want map[int64][]store.Mention) (int, error)
+	ReplaceMentions(ctx context.Context, want map[int64][]store.Mention, matchable map[string]bool) (int, error)
 }
 
 // Getter fetches a feed; *fetch.Client implements it.
@@ -162,5 +162,12 @@ func (j *Job) retag(ctx context.Context) (int, error) {
 	for _, s := range stories {
 		want[s.ID] = m.Tag(s.Title + "\n" + s.Summary)
 	}
-	return j.st.ReplaceMentions(ctx, want)
+	// Only the people the tagger can find may lose a mention: one who has
+	// left keeps the stories that named them, and an empty roster removes
+	// no one.
+	matchable := make(map[string]bool, len(members))
+	for _, mb := range members {
+		matchable[mb.ID] = true
+	}
+	return j.st.ReplaceMentions(ctx, want, matchable)
 }

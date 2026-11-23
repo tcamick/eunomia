@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -140,7 +139,7 @@ func checkManifest(dir string) (Manifest, error) {
 		if err != nil {
 			return err
 		}
-		if !d.Type().IsRegular() || d.Name() == manifestName || strings.HasPrefix(d.Name(), ".") {
+		if !d.Type().IsRegular() || d.Name() == manifestName {
 			return nil
 		}
 		info, err := d.Info()

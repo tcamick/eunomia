@@ -154,10 +154,14 @@ type Mention struct {
 	Ref  string `json:"ref"`  // a person id or a state code
 }
 
-// ReplaceMentions sets each listed story's mentions to exactly those given,
+// ReplaceMentions sets each listed story's mentions to those given,
 // writing only the differences, and returns how many rows it wrote. A story
-// not listed is untouched.
-func (s *Store) ReplaceMentions(ctx context.Context, want map[int64][]Mention) (int, error) {
+// not listed is untouched. A person mention is removed only when the person
+// is in matchable, the people the tagger could have found: a member who
+// has left, and so is no longer matched, keeps the stories that named them
+// (go-conventions, Provenance: history is never deleted because a source
+// stopped listing someone). A nil matchable removes no person mention.
+func (s *Store) ReplaceMentions(ctx context.Context, want map[int64][]Mention, matchable map[string]bool) (int, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("replace mentions: %w", err)
@@ -189,7 +193,7 @@ func (s *Store) ReplaceMentions(ctx context.Context, want map[int64][]Mention) (
 			changed++
 		}
 		for m := range have {
-			if keep[m] {
+			if keep[m] || (m.Kind == "person" && !matchable[m.Ref]) {
 				continue
 			}
 			if _, err := tx.ExecContext(ctx, `DELETE FROM mentions WHERE story = ? AND kind = ? AND ref = ?`,

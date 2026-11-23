@@ -48,7 +48,7 @@ ADRs, one short page each, written in the phase that builds the thing: 0001 Go b
 | Job | From | Runs | What it writes |
 |---|---|---|---|
 | `roster` | E1a | daily | people, terms, leadership roles, committees and members, portraits, changes |
-| `news` | E2 | hourly | stories, mentions |
+| `news` | E2 | every 30 minutes (amended 2026-11-23, E2: two conditional requests an hour per feed keep "within an hour" true) | stories, mentions |
 | `backup` | E2 | daily | a dated copy of the SQLite file and portraits on seabass |
 | `states` | E3b | weekly | governors, state legislators, chamber totals, changes |
 | `stale` | E3b | weekly | a status line for each curated entry past its age |
@@ -62,7 +62,7 @@ ADRs, one short page each, written in the phase that builds the thing: 0001 Go b
 Every job records its outcome in `jobs`, shows on the status page, and has the no-op and idempotency tests.
 
 ### HTTP
-`GET` under `/api/` returns JSON. The only writes are `POST /api/visit` and `PUT`/`DELETE /api/marks/{story}` (E8 adds the card collection). Routes of the web app: `/` (Home from E3a; the Congress page before that) · `/map` · `/states/{code}` · `/people/{id}` · `/congress` · `/committees/{id}` · `/votes` and `/votes/{id}` · `/bills/{id}` · `/government` · `/news` · `/elections`, `/races/{id}`, `/ballot` · `/learn` and `/learn/{slug}` · `/cards` · `/status`. The server answers any extension-less path with the app shell.
+`GET` under `/api/` returns JSON. The only writes are `POST /api/visit` and `PUT /api/stories/{id}/marks` with `{"read": bool, "saved": bool}`, either optional (amended 2026-11-23, E2: one route sets and clears both marks) (E8 adds the card collection). Routes of the web app: `/` (Home from E3a; the Congress page before that) · `/map` · `/states/{code}` · `/people/{id}` · `/congress` · `/committees/{id}` · `/votes` and `/votes/{id}` · `/bills/{id}` · `/government` · `/news` · `/elections`, `/races/{id}`, `/ballot` · `/learn` and `/learn/{slug}` · `/cards` · `/status`. The server answers any extension-less path with the app shell.
 
 ### Schema
 PRD §10 is the model. Tables arrive with the phase that fills them, one migration each. Two rules shape every table: a person and the seats they hold are separate rows, and every row from outside has `source` and `fetched_at` (`docs/go-conventions.md`, Provenance).
