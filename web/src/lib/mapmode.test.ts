@@ -25,14 +25,20 @@ const state = (code: string, name: string, senate: Delegation, house: Delegation
 
 const cases = {
   'all one party': del(2, 0, 'D', [{ ...D, seats: 2 }]),
-  'a split delegation': del(2, 0, 'even', [
-    { ...D, seats: 1 },
-    { ...R, seats: 1 },
-  ]),
-  'an Independent who caucuses with the Democrats': del(2, 0, 'even', [
-    { ...I, seats: 1 },
-    { ...R, seats: 1 },
-  ]),
+  'a split delegation': {
+    ...del(2, 0, 'even', [
+      { ...D, seats: 1 },
+      { ...R, seats: 1 },
+    ]),
+    stripes: ['D', 'R'],
+  },
+  'an Independent who caucuses with the Democrats': {
+    ...del(2, 0, 'even', [
+      { ...I, seats: 1 },
+      { ...R, seats: 1 },
+    ]),
+    stripes: ['I', 'R'],
+  },
   'one seat vacant': del(2, 1, 'R', [{ ...R, seats: 1 }]),
   'both vacant': del(2, 2, 'vacant', []),
   'an at-large seat': del(1, 0, 'R', [{ ...R, seats: 1 }]),
@@ -49,6 +55,20 @@ test('fillFor paints a lead party, stripes for a tie, a hatch for vacant, nothin
   assert.deepEqual(fillFor(cases['an at-large seat']), { kind: 'party', code: 'R' });
   assert.deepEqual(fillFor(cases['no seats']), { kind: 'none' });
   assert.deepEqual(fillFor(cases['party unknown']), { kind: 'party', code: '' }, 'unknown, never a guessed party');
+});
+
+test("fillFor draws a tie with the server's stripes, not the first two groups", () => {
+  // Two Independents caucusing apart (2 I) tie two Republicans (2 R): the
+  // groups' order would say R and I-caucusing-D; the codes are I and R.
+  const tie = {
+    ...del(4, 0, 'even', [
+      { ...R, seats: 2 },
+      { ...I, seats: 1 },
+      { party: 'Independent', caucus: 'Republican', code: 'I', seats: 1 },
+    ]),
+    stripes: ['I', 'R'],
+  };
+  assert.deepEqual(fillFor(tie), { kind: 'even', codes: ['I', 'R'] });
 });
 
 test('shortLabel says the seats in letters, so colour is never alone', () => {

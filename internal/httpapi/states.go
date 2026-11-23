@@ -53,7 +53,7 @@ func (a *api) statesHandler(w http.ResponseWriter, r *http.Request) {
 	// The map's seat counts come from the apportionment, and its lines from
 	// Census boundaries: both are cited, as on a state's page (PRD §3).
 	sources := append(a.rosterSource(ctx), apportionmentLine(),
-		SourceLine{Name: stateShapesName, URL: geo.StateShapesSource, CheckedAt: geo.DistrictShapesChecked})
+		SourceLine{Name: stateShapesName, URL: geo.StateShapesSource, CheckedAt: geo.StateShapesChecked})
 	writeJSON(w, map[string]any{"states": congress.States(ms), keySources: sources})
 }
 

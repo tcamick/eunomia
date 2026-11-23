@@ -394,12 +394,17 @@ type LastHolder struct {
 // left_on counts, so "last held by" is said only when it is known.
 func (s *Store) LastHolders(ctx context.Context, state string) (map[string]LastHolder, error) {
 	out := map[string]LastHolder{}
+	// Each empty office's latest term, by when it ended or its holder was
+	// last listed; its holder is named only if we saw them leave mid-term.
+	// A later term that ran its course (a special election's winner who
+	// served to the end) means the earlier leaver is not the last holder.
+	seen := map[string]bool{}
 	err := eachRow(ctx, s.db, `
-		SELECT t.office, p.id, p.display_name, COALESCE(t.party, ''), t.left_on
+		SELECT t.office, p.id, p.display_name, COALESCE(t.party, ''), COALESCE(t.left_on, '')
 		FROM terms t JOIN people p ON p.id = t.person
-		WHERE t.state = ? AND t.left_on IS NOT NULL AND t.unlisted_on IS NULL AND t.current = 0
+		WHERE t.state = ? AND t.unlisted_on IS NULL AND t.current = 0
 		  AND NOT EXISTS (SELECT 1 FROM terms c WHERE c.office = t.office AND c.current = 1 AND c.unlisted_on IS NULL)
-		ORDER BY t.office, t.left_on DESC`, func(r *sql.Rows) error {
+		ORDER BY t.office, COALESCE(t.left_on, t.end) DESC`, func(r *sql.Rows) error {
 		var (
 			office string
 			h      LastHolder
@@ -407,8 +412,12 @@ func (s *Store) LastHolders(ctx context.Context, state string) (map[string]LastH
 		if err := r.Scan(&office, &h.Person, &h.Name, &h.Party, &h.LeftOn); err != nil {
 			return err
 		}
-		if _, seen := out[office]; !seen {
-			out[office] = h // the latest, by the ORDER BY
+		if seen[office] {
+			return nil
+		}
+		seen[office] = true // the latest, by the ORDER BY
+		if h.LeftOn != "" {
+			out[office] = h
 		}
 		return nil
 	}, state)

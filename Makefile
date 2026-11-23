@@ -74,8 +74,9 @@ geo: ## Regenerate the map's shapes into web/src/lib/geo (Node 22 in Docker; doc
 	test -f $(GEO_CD_ZIP) || curl -fsS -m 300 -o $(GEO_CD_ZIP) $(GEO_CD_URL)
 	echo "$(GEO_CD_SHA256)  $(GEO_CD_ZIP)" | sha256sum -c --quiet -
 	cd scripts/geo/input && python3 -I -m zipfile -e cb_2024_us_cd119_500k.zip .
-	rm -rf web/src/lib/geo
-	docker build -q --target geo-out --output type=local,dest=web/src/lib/geo . >/dev/null
+	rm -rf $(LOCALBIN)/geo-new && mkdir -p $(LOCALBIN)
+	docker build -q --target geo-out --output type=local,dest=$(LOCALBIN)/geo-new . >/dev/null
+	rm -rf web/src/lib/geo && mv $(LOCALBIN)/geo-new web/src/lib/geo
 
 .PHONY: bundle-check
 bundle-check: ## Build the frontend afresh and check each state's districts are a chunk of their own (E1b).

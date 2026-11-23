@@ -44,13 +44,13 @@ func TestStates_TheColourModes(t *testing.T) {
 		"a split Senate delegation is even, not a blend": {
 			members: []store.Sitting{senator("PA", "Democratic", "", 1), senator("PA", "Republican", "", 3)},
 			code:    "PA", body: Senate,
-			want: Delegation{Seats: 2, Lead: LeadEven, Parties: []PartyCount{
+			want: Delegation{Seats: 2, Lead: LeadEven, Stripes: []string{"D", "R"}, Parties: []PartyCount{
 				{Party: "Democratic", Code: "D", Seats: 1}, {Party: "Republican", Code: "R", Seats: 1}}},
 		},
 		"an Independent beside a Democrat is a split, with whom they caucus": {
 			members: []store.Sitting{senator("ME", "Republican", "", 2), senator("ME", "Independent", "Democratic", 1)},
 			code:    "ME", body: Senate,
-			want: Delegation{Seats: 2, Lead: LeadEven, Parties: []PartyCount{
+			want: Delegation{Seats: 2, Lead: LeadEven, Stripes: []string{"I", "R"}, Parties: []PartyCount{
 				{Party: "Independent", Caucus: "Democratic", Code: "I", Seats: 1}, {Party: "Republican", Code: "R", Seats: 1}}},
 		},
 		"a vacancy beside a senator: the senator's party leads, the vacancy is counted": {
@@ -77,7 +77,7 @@ func TestStates_TheColourModes(t *testing.T) {
 		"a House delegation evenly split": {
 			members: []store.Sitting{rep("NH", "Democratic", 1), rep("NH", "Republican", 2)},
 			code:    "NH", body: House,
-			want: Delegation{Seats: 2, Lead: LeadEven, Parties: []PartyCount{
+			want: Delegation{Seats: 2, Lead: LeadEven, Stripes: []string{"D", "R"}, Parties: []PartyCount{
 				{Party: "Democratic", Code: "D", Seats: 1}, {Party: "Republican", Code: "R", Seats: 1}}},
 		},
 		"a member with no party in the source leads as unknown, not as a guess": {
@@ -107,6 +107,45 @@ func TestStates_TheColourModes(t *testing.T) {
 				got = s.House
 			}
 			assert.Equal(t, tc.want, got, "%s's %s delegation", tc.code, tc.body)
+		})
+	}
+}
+
+func TestDelegation_DecidesTheLeadOnSeatsPerPartyCode(t *testing.T) {
+	t.Parallel()
+	// PRD §3, the same count for every party: seats are totalled by the
+	// code the map colours by before the lead is chosen, so an Independent's
+	// or a third party's seats are not split by caucus or party name while
+	// a major party's are counted whole (review, pass 2).
+	type g = [2]string
+	tests := map[string]struct {
+		held        map[[2]string]int
+		wantLead    string
+		wantStripes []string
+	}{
+		"Independents caucusing apart count together: R 2 and I 2 tie": {
+			held:     map[[2]string]int{g{"Republican", ""}: 2, g{"Independent", "Democratic"}: 1, g{"Independent", "Republican"}: 1},
+			wantLead: LeadEven, wantStripes: []string{"I", "R"},
+		},
+		"two other parties count together: O 2 leads D 1": {
+			held:     map[[2]string]int{g{"Democratic", ""}: 1, g{"Green", ""}: 1, g{"Libertarian", ""}: 1},
+			wantLead: "O",
+		},
+		"a three-way tie shows two stripes in the fixed letter order": {
+			held:     map[[2]string]int{g{"Republican", ""}: 1, g{"Democratic", ""}: 1, g{"Independent", ""}: 1},
+			wantLead: LeadEven, wantStripes: []string{"D", "I"},
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			seats := 0
+			for _, n := range tc.held {
+				seats += n
+			}
+			d := delegation(seats, tc.held)
+			assert.Equal(t, tc.wantLead, d.Lead, "the lead")
+			assert.Equal(t, tc.wantStripes, d.Stripes, "the tie's stripes")
 		})
 	}
 }

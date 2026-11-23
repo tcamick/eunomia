@@ -59,6 +59,9 @@ const (
 // boundaries (ADR 0006).
 const StateShapesSource = "https://github.com/topojson/us-atlas/tree/v3.0.1"
 
+// StateShapesChecked is when us-atlas 3.0.1 was pinned (make geo).
+var StateShapesChecked = time.Date(2026, 11, 23, 0, 0, 0, 0, time.UTC)
+
 // DistrictShapesChecked is when the district file was downloaded and pinned.
 var DistrictShapesChecked = time.Date(2026, 11, 23, 0, 0, 0, 0, time.UTC)
 

@@ -33,10 +33,10 @@ for code in manifest['districts']:
 print(f'entry {entry}: {os.path.getsize(os.path.join(dist, "assets", entry))} bytes')
 print(f'district modules in a chunk of their own: {found} of {len(manifest["districts"])}')
 print(f'district shapes in the entry bundle: {bad or "none"}')
-print(f'state map in the entry bundle: {state_path("CA") in entry_js}')
+in_entry = state_path('CA') in entry_js
+print(f'state map in the entry bundle: {in_entry}')
 sizes = sorted(os.path.getsize(c) for c in chunks if os.path.basename(c) != entry)
 print(f'other chunks: {len(sizes)}, smallest {sizes[0]} bytes, largest {sizes[-1]} bytes')
-in_entry = state_path('CA') in entry_js
 in_a_chunk = any(state_path('CA') in open(c).read() for c in chunks if os.path.basename(c) != entry)
 print(f'state map in a chunk of its own: {in_a_chunk}')
 # web-conventions, Performance: the map's shapes load with the pages that

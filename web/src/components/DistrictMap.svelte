@@ -97,8 +97,8 @@
   {/if}
   <figcaption id="districts-caption">
     {#if linesOnly}
-      District lines of the {ordinal(congress)} Congress. The members listed sit in the {ordinal(sitting)} Congress, whose
-      lines are not yet published, so they are not drawn on these; the list has every seat.
+      District lines of the {ordinal(congress)} Congress. The members listed sit in the {ordinal(sitting)} Congress, so they
+      are not drawn on these lines; the list has every seat.
     {:else}
       Districts of the {ordinal(congress)} Congress{#if map && dense}; select a district, or use the list{/if}.
     {/if}

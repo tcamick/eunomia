@@ -31,9 +31,16 @@ type Delegation struct {
 	// Lead is the party code that holds more filled seats than any other,
 	// or LeadEven, LeadVacant or LeadNone. A member with no party in the
 	// source has code "", so a lead of "" is "party unknown".
-	Lead    string       `json:"lead"`
+	Lead string `json:"lead"`
+	// Stripes are the two party codes a LeadEven tie is drawn with.
+	Stripes []string     `json:"stripes,omitempty"`
 	Parties []PartyCount `json:"parties"`
 }
+
+// codeOrder breaks ties between party codes, the same way for every party:
+// the letters in order, "party unknown" last. It decides only which two
+// codes a three-way tie's stripes show; the label names every party.
+var codeOrder = map[string]int{"D": 0, "I": 1, "O": 2, "R": 3, "": 4}
 
 // StateSummary is one state's, DC's or a territory's delegation in both
 // chambers: a row of the map's list and the data for its colour modes.
@@ -83,20 +90,41 @@ func delegation(seats int, held map[[2]string]int) Delegation {
 	switch {
 	case seats == 0:
 		d.Lead = LeadNone
+		return d
 	case filled == 0:
 		d.Lead = LeadVacant
-	case len(d.Parties) > 1 && d.Parties[0].Seats == d.Parties[1].Seats && d.Parties[0].Code != d.Parties[1].Code:
-		// Two groups with one code (Independents caucusing apart) are one
-		// colour: that code leads, below; there is no stripe of one colour.
+		return d
+	}
+	// The map colours by party code, so the lead is decided on seats per
+	// code: every party's seats are counted together before the comparison,
+	// an Independent's or a third party's as much as a major party's (PRD §3).
+	byCode := map[string]int{}
+	for _, p := range d.Parties {
+		byCode[p.Code] += p.Seats
+	}
+	codes := make([]string, 0, len(byCode))
+	for c := range byCode {
+		codes = append(codes, c)
+	}
+	sort.Slice(codes, func(a, b int) bool {
+		if byCode[codes[a]] != byCode[codes[b]] {
+			return byCode[codes[a]] > byCode[codes[b]]
+		}
+		return codeOrder[codes[a]] < codeOrder[codes[b]]
+	})
+	if len(codes) > 1 && byCode[codes[0]] == byCode[codes[1]] {
 		d.Lead = LeadEven
-	default:
-		d.Lead = d.Parties[0].Code
+		d.Stripes = []string{codes[0], codes[1]}
+	} else {
+		d.Lead = codes[0]
 	}
 	return d
 }
 
 // Number is the Congress sitting on a YYYY-MM-DD date: each runs from
-// January 3 of an odd year to January 3 two years on, the 1st from 1789.
+// January 3 of an odd year to January 3 two years on (since 1935, under the
+// 20th Amendment; earlier Congresses began on March 4, which this does not
+// model, as no term it is given is that old).
 // It returns 0 for a value that is not a date.
 func Number(date string) int {
 	t, err := time.Parse(time.DateOnly, date)

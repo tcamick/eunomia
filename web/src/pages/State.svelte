@@ -191,7 +191,7 @@
     font-weight: 650;
   }
   @media (pointer: coarse) {
-    .who a {
+    :is(.who, .empty) a {
       display: inline-flex;
       align-items: center;
       min-block-size: 2.75rem;

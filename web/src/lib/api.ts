@@ -206,6 +206,8 @@ export interface Delegation {
   vacant: number;
   /** A party code with the most filled seats, or 'even', 'vacant', 'none'; '' is party unknown. */
   lead: string;
+  /** The two party codes a tie ('even') is drawn with, decided by the server. */
+  stripes?: string[];
   parties: PartyCount[];
 }
 
