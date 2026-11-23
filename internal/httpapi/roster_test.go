@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,11 +25,22 @@ const legislatorsURL = "https://unitedstates.github.io/congress-legislators/legi
 
 // fakeRoster serves a fixed roster. Only what a test sets is there.
 type fakeRoster struct {
-	sittings   []store.Sitting
-	people     map[string]store.PersonDetail
-	committees []store.CommitteeSummary
-	members    map[string][]store.CommitteeMember
-	checked    time.Time
+	sittings    []store.Sitting
+	people      map[string]store.PersonDetail
+	committees  []store.CommitteeSummary
+	members     map[string][]store.CommitteeMember
+	checked     time.Time
+	lastHolders map[string]store.LastHolder
+}
+
+func (f fakeRoster) LastHolders(_ context.Context, state string) (map[string]store.LastHolder, error) {
+	out := map[string]store.LastHolder{}
+	for office, h := range f.lastHolders {
+		if parts := strings.Split(office, "/"); len(parts) == 3 && parts[1] == state {
+			out[office] = h
+		}
+	}
+	return out, nil
 }
 
 func (f fakeRoster) Sittings(context.Context) ([]store.Sitting, error)       { return f.sittings, nil }
@@ -67,9 +79,9 @@ func decode[T any](t *testing.T, resp *http.Response) T {
 }
 
 // sitter is a sitting House member of party, from Ohio's district.
-func sitter(id, name, party, caucus string, district int) store.Sitting {
+func sitter(id, name, party string, district int) store.Sitting {
 	return store.Sitting{ID: id, Name: name, LastName: name, Body: "house", State: "OH", District: &district,
-		Party: party, Caucus: caucus, Start: "2025-01-03", End: "2027-01-03", Portrait: true}
+		Party: party, Start: "2025-01-03", End: "2027-01-03", Portrait: true}
 }
 
 // person is a person's page data for a member of party.
@@ -155,8 +167,8 @@ func TestSearch_FindsByPartOfANameByStateAndByCommittee(t *testing.T) {
 	t.Parallel()
 	r := fakeRoster{
 		sittings: []store.Sitting{
-			sitter("A000001", "Charles Schumer", "Democratic", "", 1),
-			sitter("A000002", "Jim Jordan", "Republican", "", 4),
+			sitter("A000001", "Charles Schumer", "Democratic", 1),
+			sitter("A000002", "Jim Jordan", "Republican", 4),
 		},
 		committees: []store.CommitteeSummary{{ID: "HSJU", Name: "House Committee on the Judiciary", Chamber: "house"}},
 		checked:    t0,

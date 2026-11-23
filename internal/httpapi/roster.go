@@ -32,6 +32,7 @@ type RosterReader interface {
 	Committees(ctx context.Context) ([]store.CommitteeSummary, error)
 	CommitteeMembers(ctx context.Context, id string) ([]store.CommitteeMember, error)
 	SourceChecks(ctx context.Context) ([]store.SourceState, error)
+	LastHolders(ctx context.Context, state string) (map[string]store.LastHolder, error)
 }
 
 var (

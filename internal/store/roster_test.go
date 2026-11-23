@@ -103,3 +103,35 @@ func TestApplyRoster_AnUnlistedRowIsKeptDatedAndAListedOneIsCurrentAgain(t *test
 			"the %s row is listed again", table)
 	}
 }
+
+func TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder(t *testing.T) {
+	t.Parallel()
+	// "Last held by" is said only when we saw the source stop listing the
+	// holder mid-term (left_on); an old term of someone still serving
+	// elsewhere is not a last holder.
+	s := open(t)
+	ctx := context.Background()
+	d3, d5 := 3, 5
+	require.NoError(t, s.ApplyRoster(ctx, RosterPlan{At: t0, Source: rosterSrc,
+		People: []Person{
+			{ID: "A000001", Bioguide: "A000001", First: "Ann", Last: "Able", Display: "Ann Able"},
+			{ID: "B000002", Bioguide: "B000002", First: "Bo", Last: "Baker", Display: "Bo Baker", InCongress: true},
+		},
+		Terms: []Term{
+			// Ann left OH-3 mid-term: seen, so she is its last holder.
+			{Person: "A000001", Office: "house/OH/3", Body: "house", State: "OH", District: &d3,
+				Start: "2025-01-03", End: "2027-01-03", Party: "Democratic", LeftOn: "2026-11-30"},
+			// Bo held OH-5 long ago and is a senator now: not OH-5's last holder.
+			{Person: "B000002", Office: "house/OH/5", Body: "house", State: "OH", District: &d5,
+				Start: "2001-01-03", End: "2003-01-03", Party: "Republican"},
+			{Person: "B000002", Office: "senate/OH/1", Body: "senate", State: "OH",
+				Start: "2025-01-03", End: "2031-01-03", Party: "Republican", Current: true},
+		},
+	}), "seeding the roster")
+
+	got, err := s.LastHolders(ctx, "OH")
+	require.NoError(t, err, "reading Ohio's last holders")
+	assert.Equal(t, map[string]LastHolder{
+		"house/OH/3": {Person: "A000001", Name: "Ann Able", Party: "Democratic", LeftOn: "2026-11-30"},
+	}, got, "only the member seen leaving mid-term")
+}
