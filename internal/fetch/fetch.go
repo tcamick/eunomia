@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/tcamick/eunomia/internal/version"
 )
 
 // Validators are what a source sent to let the next request ask "has it
@@ -64,9 +66,6 @@ func (e *StatusError) Error() string { return "unexpected status " + strconv.Ito
 type Options struct {
 	// Sources are the names a request may carry; the metric label's values.
 	Sources []string
-	// UserAgent identifies the program and nothing else: eunomia/<version>,
-	// never the owner's name, email or address (AGENTS.md).
-	UserAgent string
 	// Timeout bounds one attempt, connection to last byte. Default 30s.
 	Timeout time.Duration
 	// MaxBytes bounds a body. Default 32 MiB.
@@ -111,6 +110,7 @@ const (
 	resultOK             = "ok"
 	resultNotModified    = "not_modified"
 	resultClientError    = "client_error"
+	resultRateLimited    = "rate_limited"
 	resultServerError    = "server_error"
 	resultTransportError = "transport_error"
 	resultTooLarge       = "too_large"
@@ -118,13 +118,15 @@ const (
 
 const maxRedirects = 5
 
+// UserAgent is the only User-Agent the client sends: the program and its
+// version, and nothing that identifies the owner (AGENTS.md). It is built
+// here, not passed in, so no adapter can add to it.
+func UserAgent() string { return "eunomia/" + version.Version }
+
 // New returns a client for o.Sources with its metrics registered.
 func New(o Options) (*Client, error) {
 	if len(o.Sources) == 0 {
 		return nil, errors.New("fetch: no sources")
-	}
-	if o.UserAgent == "" {
-		return nil, errors.New("fetch: no user agent")
 	}
 	if o.Registerer == nil {
 		return nil, errors.New("fetch: no metrics registerer")
@@ -136,7 +138,7 @@ func New(o Options) (*Client, error) {
 		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "eunomia_fetch_requests_total",
 			Help: "Requests to outside sources, one per attempt. source is a configured source name; result is ok, " +
-				"not_modified, client_error, server_error, transport_error or too_large.",
+				"not_modified, client_error, rate_limited, server_error, transport_error or too_large.",
 		}, []string{"source", "result"}),
 		duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "eunomia_fetch_duration_seconds",
@@ -149,7 +151,7 @@ func New(o Options) (*Client, error) {
 		Timeout:   o.Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if req.URL.Scheme != "https" {
-				return fmt.Errorf("redirect to %s: %w", req.URL.Redacted(), ErrNotHTTPS)
+				return fmt.Errorf("redirect to %s: %w", redact(req.URL), ErrNotHTTPS)
 			}
 			if len(via) >= maxRedirects {
 				return fmt.Errorf("stopped after %d redirects", maxRedirects)
@@ -294,7 +296,7 @@ func (c *Client) attempt(ctx context.Context, source string, u *url.URL, prev Va
 	if err != nil {
 		return nil, false, fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("User-Agent", c.o.UserAgent)
+	req.Header.Set("User-Agent", UserAgent())
 	if prev.ETag != "" {
 		req.Header.Set("If-None-Match", prev.ETag)
 	}
@@ -306,7 +308,7 @@ func (c *Client) attempt(ctx context.Context, source string, u *url.URL, prev Va
 	if err != nil {
 		c.observe(source, resultTransportError, start)
 		// A redirect off https is a refusal, not weather; do not retry it.
-		return nil, !errors.Is(err, ErrNotHTTPS), fmt.Errorf("get: %w", err)
+		return nil, !errors.Is(err, ErrNotHTTPS), transportError(u, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -327,13 +329,40 @@ func (c *Client) attempt(ctx context.Context, source string, u *url.URL, prev Va
 		c.observe(source, resultOK, start)
 		return &Response{Status: resp.StatusCode, Body: body, Validators: merge(Validators{}, resp.Header)}, false, nil
 	case resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
-		c.observe(source, resultServerError, start)
+		result := resultServerError
+		if resp.StatusCode == http.StatusTooManyRequests {
+			result = resultRateLimited
+		}
+		c.observe(source, result, start)
 		se := &StatusError{Code: resp.StatusCode}
 		return nil, true, &retryAfterError{StatusError: se, after: retryAfter(resp.Header.Get("Retry-After"))}
 	default:
 		c.observe(source, resultClientError, start)
 		return nil, false, &StatusError{Code: resp.StatusCode}
 	}
+}
+
+// transportError rewords a failed request so its text never carries the
+// URL's query, which is where an API key travels: net/http's *url.Error
+// prints the whole URL, and the runner logs the error and stores it for the
+// status page (go-conventions, Fetching from public sources). The cause is
+// kept, so errors.Is still finds it.
+func transportError(u *url.URL, err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		err = ue.Err
+	}
+	return fmt.Errorf("get %s: %w", redact(u), err)
+}
+
+// redact returns u without its user info and with its query replaced, safe
+// to log or store.
+func redact(u *url.URL) string {
+	r := url.URL{Scheme: u.Scheme, Host: u.Host, Path: u.Path}
+	if u.RawQuery != "" {
+		r.RawQuery = "…"
+	}
+	return r.String()
 }
 
 func (c *Client) observe(source, result string, start time.Time) {

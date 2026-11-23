@@ -41,7 +41,7 @@ func newHandler(t *testing.T, st StatusReader) (http.Handler, *prometheus.Regist
 	t.Helper()
 	reg := prometheus.NewRegistry()
 	h, err := New(Options{Store: st, UI: ui, Version: "v-test", Now: func() time.Time { return t0 }, Log: zerolog.Nop(), Registerer: reg})
-	require.NoError(t, err)
+	require.NoError(t, err, "calling New")
 	return h, reg
 }
 
@@ -61,7 +61,7 @@ func TestStatus_ListsJobs(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	var st Status
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&st))
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&st), "calling json.NewDecoder")
 	assert.Equal(t, "v-test", st.Version)
 	require.Len(t, st.Jobs, 1)
 	assert.Equal(t, JobStatus{Name: "noop", LastRun: t0, LastOK: t0, OK: true, DurationMs: 1200}, st.Jobs[0])
@@ -74,7 +74,7 @@ func TestStatus_AnUnreadableHistoryIsSaidNotHidden(t *testing.T) {
 	resp := get(t, h, "/api/status")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var st Status
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&st))
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&st), "calling json.NewDecoder")
 	assert.Empty(t, st.Jobs)
 	assert.NotEmpty(t, st.JobsError)
 	assert.NotContains(t, st.JobsError, "locked", "the store's own error stays in the log")

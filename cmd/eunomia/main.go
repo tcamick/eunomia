@@ -162,7 +162,7 @@ func runJob(ctx context.Context, cfg *config.Config, st *store.Store, registry *
 	}
 	runErr := runner.Run(ctx, name)
 	if errors.Is(runErr, jobs.ErrUnknownJob) {
-		log.Error().Str("job", name).Strs("jobs", registry.Names()).Msg("Unknown job")
+		log.Error().Str("job", name).Strs("jobs", registry.Names()).Msg("Refused an unknown job")
 		return exitUsage
 	}
 	if cfg.PushgatewayURL != "" {

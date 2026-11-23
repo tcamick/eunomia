@@ -23,7 +23,7 @@ func parse(t *testing.T, env map[string]string, args ...string) *Config {
 func TestValidate_DefaultsAreValid(t *testing.T) {
 	t.Parallel()
 	c := parse(t, nil)
-	require.NoError(t, c.Validate("/work"))
+	require.NoError(t, c.Validate("/work"), "calling c.Validate")
 	assert.Equal(t, filepath.Join("/work", "data"), c.DataDir, "a relative data dir resolves against cwd")
 	assert.Equal(t, "127.0.0.1:8080", c.Listen)
 	assert.Equal(t, "127.0.0.1:8081", c.InternalListen)
@@ -34,7 +34,7 @@ func TestBind_EnvironmentOverridesDefaultsAndFlagsOverrideEnvironment(t *testing
 	t.Parallel()
 	env := map[string]string{EnvListen: "0.0.0.0:9000", EnvLogLevel: "debug"}
 	c := parse(t, env, "-log-level=warn")
-	require.NoError(t, c.Validate("/"))
+	require.NoError(t, c.Validate("/"), "calling c.Validate")
 	assert.Equal(t, "0.0.0.0:9000", c.Listen, "the environment sets the default")
 	assert.Equal(t, "warn", c.LogLevel, "a flag beats the environment")
 }
@@ -45,7 +45,7 @@ func TestValidate_ReportsEveryProblemAtOnce(t *testing.T) {
 		"-data-dir=", "-listen=nope", "-internal-listen=:0",
 		"-log-level=loud", "-log-format=xml", "-pushgateway-url=ftp://x")
 	err := c.Validate("/")
-	require.Error(t, err)
+	require.Error(t, err, "expected c.Validate to fail")
 	for _, flagName := range []string{"-data-dir", "-listen", "-internal-listen", "-log-level", "-log-format", "-pushgateway-url"} {
 		assert.Contains(t, err.Error(), flagName+":", "expected a problem naming %s", flagName)
 	}
@@ -53,10 +53,29 @@ func TestValidate_ReportsEveryProblemAtOnce(t *testing.T) {
 
 func TestValidate_RejectsMetricsOnTheAppPort(t *testing.T) {
 	t.Parallel()
-	c := parse(t, nil, "-listen=0.0.0.0:8080", "-internal-listen=0.0.0.0:8080")
-	err := c.Validate("/")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must differ from -listen")
+	tests := map[string]struct {
+		listen, internal string
+		clash            bool
+	}{
+		"the same address":                       {listen: "0.0.0.0:8080", internal: "0.0.0.0:8080", clash: true},
+		"all interfaces written two ways":        {listen: ":8080", internal: "0.0.0.0:8080", clash: true},
+		"one host and all interfaces, same port": {listen: "127.0.0.1:8080", internal: ":8080", clash: true},
+		"two hosts, same port":                   {listen: "127.0.0.1:8080", internal: "10.0.0.1:8080", clash: false},
+		"different ports":                        {listen: ":8080", internal: ":8081", clash: false},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			c := parse(t, nil, "-listen="+tc.listen, "-internal-listen="+tc.internal)
+			err := c.Validate("/")
+			if tc.clash {
+				require.Error(t, err, "expected %s and %s to clash", tc.listen, tc.internal)
+				assert.Contains(t, err.Error(), "must differ from -listen")
+			} else {
+				assert.NoError(t, err, "expected %s and %s not to clash", tc.listen, tc.internal)
+			}
+		})
+	}
 }
 
 func TestValidate_Addresses(t *testing.T) {

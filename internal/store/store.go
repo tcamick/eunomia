@@ -95,7 +95,10 @@ func isBusy(err error) bool {
 func dsn(path string) string {
 	path = filepath.Clean(path)
 	q := url.Values{}
-	for _, pragma := range []string{"journal_mode(WAL)", "busy_timeout(5000)", "foreign_keys(1)", "synchronous(NORMAL)"} {
+	// temp_store(MEMORY): the pods have a read-only root and no /tmp, so a
+	// sort or index build that spills must not need a temp file.
+	pragmas := []string{"journal_mode(WAL)", "busy_timeout(5000)", "foreign_keys(1)", "synchronous(NORMAL)", "temp_store(MEMORY)"}
+	for _, pragma := range pragmas {
 		q.Add("_pragma", pragma)
 	}
 	q.Set("_txlock", "immediate")

@@ -4,8 +4,9 @@
 #
 # In: only the Tailscale proxy, on the app's port; and Prometheus on the
 # internal port, which serves /metrics.
-# Out: the cluster's DNS, and the internet (the public sources), but no
-# private or link-local address.
+# Out: the cluster's DNS for every pod. The internet on 443 (the public
+# sources), but no private or link-local address, for the job pods only: the
+# server fetches nothing, so it cannot be made to.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -47,6 +48,20 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+---
+# The job pods fetch from the public sources, over https only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: eunomia-jobs-to-internet
+  namespace: eunomia
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: eunomia-job
+  policyTypes:
+    - Egress
+  egress:
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

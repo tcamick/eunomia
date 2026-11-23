@@ -14,6 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/tcamick/eunomia/internal/version"
 )
 
 // fakeClock is the client's clock and sleep: Wait records each duration and
@@ -54,7 +56,6 @@ func newClient(t *testing.T, srv *httptest.Server, mod func(*Options)) (*Client,
 	reg := prometheus.NewRegistry()
 	o := Options{
 		Sources:     []string{"test"},
-		UserAgent:   "eunomia/test",
 		Transport:   srv.Client().Transport,
 		Now:         clock.Now,
 		Wait:        clock.Wait,
@@ -83,9 +84,10 @@ func TestGet_SendsOnlyTheGenericUserAgent(t *testing.T) {
 	c, _, _ := newClient(t, srv, nil)
 
 	resp, err := c.Get(context.Background(), "test", srv.URL+"/feed", Validators{})
-	require.NoError(t, err)
+	require.NoError(t, err, "fetching from the test server")
 	assert.Equal(t, "ok", string(resp.Body))
-	assert.Equal(t, "eunomia/test", got.Get("User-Agent"))
+	assert.Equal(t, "eunomia/"+version.Version, got.Get("User-Agent"), "the program and its version, nothing more")
+	assert.Equal(t, got.Get("User-Agent"), UserAgent())
 	for _, h := range []string{"From", "Cookie", "Authorization", "Referer"} {
 		assert.Empty(t, got.Get(h), "no %s header may identify the owner", h)
 	}
@@ -107,12 +109,12 @@ func TestGet_ConditionalRequests(t *testing.T) {
 	ctx := context.Background()
 
 	first, err := c.Get(ctx, "test", srv.URL, Validators{})
-	require.NoError(t, err)
+	require.NoError(t, err, "calling c.Get")
 	assert.False(t, first.NotModified)
 	assert.Equal(t, Validators{ETag: `"v1"`, LastModified: "Sun, 22 Nov 2026 08:00:00 GMT"}, first.Validators)
 
 	second, err := c.Get(ctx, "test", srv.URL, first.Validators)
-	require.NoError(t, err)
+	require.NoError(t, err, "calling c.Get")
 	assert.True(t, second.NotModified, "unchanged source answers 304")
 	assert.Empty(t, second.Body)
 	assert.Equal(t, first.Validators, second.Validators, "a 304 keeps the validators that were sent")
@@ -120,7 +122,7 @@ func TestGet_ConditionalRequests(t *testing.T) {
 	assert.InDelta(t, 1, testutil.ToFloat64(c.requests.WithLabelValues("test", resultOK)), 0)
 	assert.InDelta(t, 1, testutil.ToFloat64(c.requests.WithLabelValues("test", resultNotModified)), 0)
 	n, err := testutil.GatherAndCount(reg, "eunomia_fetch_duration_seconds")
-	require.NoError(t, err)
+	require.NoError(t, err, "calling testutil.GatherAndCount")
 	assert.Equal(t, 1, n, "one histogram series, for the one source")
 }
 
@@ -165,9 +167,9 @@ func TestGet_Retries(t *testing.T) {
 
 			_, err := c.Get(context.Background(), "test", srv.URL, Validators{})
 			if tc.wantErr {
-				require.Error(t, err)
+				require.Error(t, err, "expected c.Get to fail")
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, err, "calling c.Get")
 			}
 			assert.Equal(t, tc.wantCalls, int(calls.Load()), "attempts made")
 			var backoffs []time.Duration
@@ -238,7 +240,7 @@ func TestGet_RefusesAnUnknownSource(t *testing.T) {
 	_, err := c.Get(context.Background(), "https://example.org/whatever", srv.URL, Validators{})
 	require.ErrorIs(t, err, ErrUnknownSource)
 	n, err := testutil.GatherAndCount(reg, "eunomia_fetch_requests_total")
-	require.NoError(t, err)
+	require.NoError(t, err, "calling testutil.GatherAndCount")
 	assert.Zero(t, n, "the source label never takes a value outside the configured list")
 }
 
@@ -252,7 +254,7 @@ func TestGet_PacesRequestsToOneHost(t *testing.T) {
 	ctx := context.Background()
 	for range 3 {
 		_, err := c.Get(ctx, "test", srv.URL, Validators{})
-		require.NoError(t, err)
+		require.NoError(t, err, "calling c.Get")
 	}
 	// The fake clock does not move between requests, so the second and
 	// third each wait out the pace from the slot before.
@@ -261,22 +263,60 @@ func TestGet_PacesRequestsToOneHost(t *testing.T) {
 
 func TestGet_StopsWhenTheContextEnds(t *testing.T) {
 	t.Parallel()
+	var calls atomic.Int32
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
 	ctx, cancel := context.WithCancel(context.Background())
+	// The pacing wait before the first attempt passes; the job is stopped
+	// during the backoff after the 503.
 	c, _, _ := newClient(t, srv, func(o *Options) {
-		o.Wait = func(context.Context, time.Duration) error { cancel(); return context.Canceled }
+		o.Wait = func(ctx context.Context, d time.Duration) error {
+			if d >= o.BaseBackoff {
+				cancel()
+			}
+			return ctx.Err()
+		}
 	})
 	_, err := c.Get(ctx, "test", srv.URL, Validators{})
 	require.ErrorIs(t, err, context.Canceled, "the caller's cancellation is reported")
+	assert.Equal(t, int32(1), calls.Load(), "one attempt, then the backoff was cut short")
 }
 
-func TestNew_RequiresSourcesAndAUserAgent(t *testing.T) {
+func TestGet_ATransportErrorDoesNotPrintTheQuery(t *testing.T) {
 	t.Parallel()
-	_, err := New(Options{UserAgent: "eunomia/test", Registerer: prometheus.NewRegistry()})
-	require.Error(t, err)
-	_, err = New(Options{Sources: []string{"x"}, Registerer: prometheus.NewRegistry()})
-	require.Error(t, err)
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	c, _, _ := newClient(t, srv, func(o *Options) { o.MaxAttempts = 1 })
+	addr := srv.URL
+	srv.Close() // nothing listens there now, so the request fails in transport
+
+	_, err := c.Get(context.Background(), "test", addr+"/v3/bill?api_key=SECRET-KEY&format=json", Validators{})
+	require.Error(t, err, "a request to a closed server fails")
+	assert.NotContains(t, err.Error(), "SECRET-KEY", "an API key in the query never reaches a log or the status page")
+	assert.NotContains(t, err.Error(), "api_key")
+	assert.Contains(t, err.Error(), "/v3/bill", "the path is kept, so the failure still says what was asked")
+}
+
+func TestGet_RateLimitIsCountedApart(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+	c, _, _ := newClient(t, srv, func(o *Options) { o.MaxAttempts = 1 })
+	_, err := c.Get(context.Background(), "test", srv.URL, Validators{})
+	require.Error(t, err, "a 429 with no retries left fails")
+	assert.InDelta(t, 1, testutil.ToFloat64(c.requests.WithLabelValues("test", resultRateLimited)), 0,
+		"being rate-limited is not shown as a source being down")
+	assert.InDelta(t, 0, testutil.ToFloat64(c.requests.WithLabelValues("test", resultServerError)), 0)
+}
+
+func TestNew_RequiresSourcesAndARegisterer(t *testing.T) {
+	t.Parallel()
+	_, err := New(Options{Registerer: prometheus.NewRegistry()})
+	require.Error(t, err, "a client with no sources is refused")
+	_, err = New(Options{Sources: []string{"x"}})
+	require.Error(t, err, "a client with nowhere to put its metrics is refused")
 }

@@ -85,7 +85,7 @@ func (c *Config) Validate(cwd string) error {
 	if err := validAddr(c.InternalListen); err != nil {
 		errs = append(errs, fmt.Errorf("-internal-listen: %w", err))
 	}
-	if c.Listen != "" && c.Listen == c.InternalListen {
+	if sameAddr(c.Listen, c.InternalListen) {
 		errs = append(errs, errors.New("-internal-listen: must differ from -listen, or /metrics would reach the tailnet"))
 	}
 	switch strings.ToLower(c.LogLevel) {
@@ -105,6 +105,18 @@ func (c *Config) Validate(cwd string) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// sameAddr reports whether two listen addresses would bind the same port: the
+// same host, or the same port where either host means every interface.
+func sameAddr(a, b string) bool {
+	ha, pa, errA := net.SplitHostPort(a)
+	hb, pb, errB := net.SplitHostPort(b)
+	if errA != nil || errB != nil || pa != pb {
+		return false
+	}
+	wildcard := func(h string) bool { return h == "" || h == "0.0.0.0" || h == "::" }
+	return ha == hb || wildcard(ha) || wildcard(hb)
 }
 
 // validAddr accepts host:port with a numeric port from 1 to 65535; the host

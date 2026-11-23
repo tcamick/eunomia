@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+	"unicode/utf8"
 )
 
 // JobResult is one run of a job, as the runner records it.
@@ -39,7 +40,12 @@ func (s *Store) RecordJob(ctx context.Context, r JobResult) error {
 	}
 	msg := r.Message
 	if len(msg) > maxMessage {
-		msg = msg[:maxMessage]
+		// Back off to a rune boundary, so the cut never splits a character.
+		cut := maxMessage
+		for cut > 0 && !utf8.RuneStart(msg[cut]) {
+			cut--
+		}
+		msg = msg[:cut]
 	}
 	ok := 0
 	if r.OK {

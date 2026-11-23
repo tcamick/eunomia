@@ -58,10 +58,10 @@ var t0 = time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)
 func newRunner(t *testing.T, rec Recorder, js ...Job) (*Runner, *prometheus.Registry) {
 	t.Helper()
 	registry, err := NewRegistry(js...)
-	require.NoError(t, err)
+	require.NoError(t, err, "calling NewRegistry")
 	reg := prometheus.NewRegistry()
 	r, err := NewRunner(registry, rec, reg, steppingClock(t0, 2*time.Second))
-	require.NoError(t, err)
+	require.NoError(t, err, "calling NewRunner")
 	return r, reg
 }
 
@@ -69,7 +69,7 @@ func TestRunner_RecordsASuccess(t *testing.T) {
 	t.Parallel()
 	rec := &fakeRecorder{}
 	r, _ := newRunner(t, rec, Noop{})
-	require.NoError(t, r.Run(context.Background(), "noop"))
+	require.NoError(t, r.Run(context.Background(), "noop"), "calling r.Run")
 	require.Len(t, rec.results, 1)
 	got := rec.results[0]
 	assert.Equal(t, store.JobResult{Name: "noop", RunAt: t0, Duration: 2 * time.Second, OK: true}, got)
@@ -111,8 +111,8 @@ func TestNoop_SecondRunChangesOnlyTheTimes(t *testing.T) {
 	rec := &fakeRecorder{}
 	r, _ := newRunner(t, rec, Noop{})
 	ctx := context.Background()
-	require.NoError(t, r.Run(ctx, "noop"))
-	require.NoError(t, r.Run(ctx, "noop"))
+	require.NoError(t, r.Run(ctx, "noop"), "calling r.Run")
+	require.NoError(t, r.Run(ctx, "noop"), "calling r.Run")
 	require.Len(t, rec.results, 2)
 	a, b := rec.results[0], rec.results[1]
 	a.RunAt, b.RunAt = time.Time{}, time.Time{}
@@ -122,7 +122,7 @@ func TestNoop_SecondRunChangesOnlyTheTimes(t *testing.T) {
 func TestNewRegistry_RefusesADuplicateName(t *testing.T) {
 	t.Parallel()
 	_, err := NewRegistry(Noop{}, Noop{})
-	require.Error(t, err)
+	require.Error(t, err, "expected NewRegistry to fail")
 }
 
 // pushed is what a fake Pushgateway received.
@@ -155,9 +155,9 @@ func TestPush_SendsTheRunsGaugesGroupedByBatch(t *testing.T) {
 	withJob := prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "eunomia_job_test", Help: "h"}, []string{"job"})
 	withJob.WithLabelValues("noop").Set(1)
 	reg.MustRegister(withJob, collectors.NewGoCollector())
-	require.NoError(t, r.Run(context.Background(), "noop"))
+	require.NoError(t, r.Run(context.Background(), "noop"), "calling r.Run")
 
-	require.NoError(t, Push(context.Background(), gw.URL, "noop", reg, gw.Client()))
+	require.NoError(t, Push(context.Background(), gw.URL, "noop", reg, gw.Client()), "calling Push")
 	p := got()
 	assert.Equal(t, http.MethodPut, p.method, "PUT replaces the batch's last run")
 	assert.Equal(t, "/metrics/job/eunomia-batch/batch/noop", p.path)
@@ -175,7 +175,7 @@ func TestPush_ReportsAGatewayFailure(t *testing.T) {
 	defer srv.Close()
 	_, reg := newRunner(t, &fakeRecorder{}, Noop{})
 	err := Push(context.Background(), srv.URL, "noop", reg, srv.Client())
-	require.Error(t, err)
+	require.Error(t, err, "expected Push to fail")
 }
 
 // fakeHistory returns fixed statuses or an error.
@@ -189,7 +189,7 @@ func (f fakeHistory) Jobs(context.Context) ([]store.JobStatus, error) { return f
 func TestHistoryCollector_ExportsRegisteredJobsOnly(t *testing.T) {
 	t.Parallel()
 	registry, err := NewRegistry(Noop{})
-	require.NoError(t, err)
+	require.NoError(t, err, "calling NewRegistry")
 	c := NewHistoryCollector(fakeHistory{statuses: []store.JobStatus{
 		{Name: "noop", LastRun: t0, LastOK: t0, OK: true, LastDuration: 1500 * time.Millisecond},
 		{Name: "retired", LastRun: t0, OK: false},
@@ -216,12 +216,12 @@ eunomia_job_last_run_ok{job="noop"} 1
 func TestHistoryCollector_AnUnreadableHistoryIsReportedNotHidden(t *testing.T) {
 	t.Parallel()
 	registry, err := NewRegistry(Noop{})
-	require.NoError(t, err)
+	require.NoError(t, err, "calling NewRegistry")
 	c := NewHistoryCollector(fakeHistory{err: errors.New("database is locked")}, registry)
 	want := `
 # HELP eunomia_job_history_up 1 if the job history could be read at this scrape, else 0.
 # TYPE eunomia_job_history_up gauge
 eunomia_job_history_up 0
 `
-	require.NoError(t, testutil.CollectAndCompare(c, strings.NewReader(want), "eunomia_job_history_up"))
+	require.NoError(t, testutil.CollectAndCompare(c, strings.NewReader(want), "eunomia_job_history_up"), "calling testutil.CollectAndCompare")
 }

@@ -68,10 +68,10 @@ func TestRun_JobRecordsItsRunAndPushes(t *testing.T) {
 	require.Equal(t, 0, code, "stderr: %s", errOut)
 
 	st, err := store.Open(context.Background(), filepath.Join(dir, dbFile), time.Now)
-	require.NoError(t, err)
+	require.NoError(t, err, "calling store.Open")
 	defer func() { _ = st.Close() }()
 	jobs, err := st.Jobs(context.Background())
-	require.NoError(t, err)
+	require.NoError(t, err, "calling st.Jobs")
 	require.Len(t, jobs, 1, "the run is in the shared file")
 	assert.Equal(t, "noop", jobs[0].Name)
 	assert.True(t, jobs[0].OK)
@@ -93,12 +93,12 @@ func TestRun_UnknownJobIsAUsageErrorAndRecordsNothing(t *testing.T) {
 	dir := t.TempDir()
 	code, _, errOut := runCmd(t, nil, "job", "-data-dir", dir, "nope")
 	assert.Equal(t, exitUsage, code)
-	assert.Contains(t, errOut, "Unknown job")
+	assert.Contains(t, errOut, "Refused an unknown job")
 
 	st, err := store.Open(context.Background(), filepath.Join(dir, dbFile), time.Now)
-	require.NoError(t, err)
+	require.NoError(t, err, "calling store.Open")
 	defer func() { _ = st.Close() }()
 	jobs, err := st.Jobs(context.Background())
-	require.NoError(t, err)
+	require.NoError(t, err, "calling st.Jobs")
 	assert.Empty(t, jobs)
 }
