@@ -116,6 +116,8 @@ func New(o Options) (http.Handler, error) {
 		mux.HandleFunc("GET /api/committees", a.committeesHandler)
 		mux.HandleFunc("GET /api/committees/{id}", a.committeeHandler)
 		mux.HandleFunc("GET /api/search", a.searchHandler)
+		mux.HandleFunc("GET /api/states", a.statesHandler)
+		mux.HandleFunc("GET /api/states/{code}", a.stateHandler)
 		mux.HandleFunc("GET /portraits/{name}", a.portraitHandler)
 	}
 	// Every pattern names a method, so the mux never reports a request path

@@ -7,6 +7,8 @@
 /web/dist/*
 !/web/dist/.gitkeep
 /scripts/geo/node_modules/
+# The Census file make geo downloads, and what it unzips to
+/scripts/geo/input/
 
 # Claude Code's worktrees (claude --worktree): one per parallel session
 /.claude/worktrees/

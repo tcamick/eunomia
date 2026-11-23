@@ -12,6 +12,12 @@ GOVULNCHECK ?= $(LOCALBIN)/govulncheck-$(GOVULNCHECK_VERSION)
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS = -X github.com/tcamick/eunomia/internal/version.Version=$(VERSION)
 
+# The map's district shapes (make geo): the Census Bureau's cartographic
+# boundary file for the 119th Congress, pinned by checksum.
+GEO_CD_URL := https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_cd119_500k.zip
+GEO_CD_ZIP := scripts/geo/input/cb_2024_us_cd119_500k.zip
+GEO_CD_SHA256 := 2b4238aed7e865df75d0c9cfcd8dffa1b79007b24519ecc4b213e683078b031a
+
 .PHONY: all
 all: build
 
@@ -61,6 +67,30 @@ web: ## Build the frontend into web/dist with the host's Node 22 (npm ci, tests,
 .PHONY: web-docker
 web-docker: ## Build the frontend in Docker (Node 22) and copy web/dist out.
 	docker build --target web-dist --output type=local,dest=web/dist .
+
+.PHONY: geo
+geo: ## Regenerate the map's shapes into web/src/lib/geo (Node 22 in Docker; docs/adr/0006).
+	mkdir -p scripts/geo/input web/src/lib/geo
+	test -f $(GEO_CD_ZIP) || curl -fsS -m 300 -o $(GEO_CD_ZIP) $(GEO_CD_URL)
+	echo "$(GEO_CD_SHA256)  $(GEO_CD_ZIP)" | sha256sum -c --quiet -
+	cd scripts/geo/input && python3 -I -m zipfile -e cb_2024_us_cd119_500k.zip .
+	rm -rf $(LOCALBIN)/geo-new && mkdir -p $(LOCALBIN)
+	docker build -q --target geo-out --output type=local,dest=$(LOCALBIN)/geo-new . >/dev/null
+	rm -rf web/src/lib/geo && mv $(LOCALBIN)/geo-new web/src/lib/geo
+
+.PHONY: bundle-check
+bundle-check: ## Build the frontend afresh and check each state's districts are a chunk of their own (E1b).
+	rm -rf $(LOCALBIN)/bundle-check && mkdir -p $(LOCALBIN)
+	docker build -q --target web-dist --output type=local,dest=$(LOCALBIN)/bundle-check . >/dev/null
+	python3 -I scripts/checks/bundle.py $(LOCALBIN)/bundle-check web/src/lib/geo
+
+.PHONY: map-check
+map-check: ## Against make run on PORT: every state is one tab stop, alphabetical, and the map agrees with its list (E1b).
+	for mode in senate house; do \
+	  google-chrome --headless=new --disable-gpu --user-data-dir=$(LOCALBIN)/chrome-check \
+	    --virtual-time-budget=5000 --dump-dom "http://127.0.0.1:$(PORT)/map?mode=$$mode" 2>/dev/null > $(LOCALBIN)/map-$$mode.html; \
+	  python3 -I scripts/checks/map_dom.py $(LOCALBIN)/map-$$mode.html $$mode; \
+	done
 
 .PHONY: build
 build: ## Build bin/eunomia for the host (static, no CGO).

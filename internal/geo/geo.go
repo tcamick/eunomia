@@ -44,6 +44,27 @@ const ApportionmentSource = "https://www2.census.gov/programs-surveys/decennial/
 // ApportionmentChecked is when the table below was compared with the source.
 var ApportionmentChecked = time.Date(2026, 11, 22, 0, 0, 0, 0, time.UTC)
 
+// The district maps' shapes (web/src/lib/geo, made by `make geo`; ADR
+// 0006): the Census Bureau's cartographic boundary file, whose terms ask
+// that the Bureau be credited wherever it is drawn.
+const (
+	DistrictShapesSource = "https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_cd119_500k.zip"
+	// DistrictShapesCongress is the Congress whose district lines they are
+	// (roadmap, gate G2: several states redrew for 2026).
+	DistrictShapesCongress = 119
+)
+
+// StateShapesSource is where the national map's state lines come from:
+// us-atlas 3.0.1's states-albers-10m.json, made from Census Bureau
+// boundaries (ADR 0006).
+const StateShapesSource = "https://github.com/topojson/us-atlas/tree/v3.0.1"
+
+// StateShapesChecked is when us-atlas 3.0.1 was pinned (make geo).
+var StateShapesChecked = time.Date(2026, 11, 23, 0, 0, 0, 0, time.UTC)
+
+// DistrictShapesChecked is when the district file was downloaded and pinned.
+var DistrictShapesChecked = time.Date(2026, 11, 23, 0, 0, 0, 0, time.UTC)
+
 // Census Bureau, "Table 1. Apportionment Population and Number of
 // Representatives by State: 2020 Census". Applies from the 118th Congress
 // until the 2030 apportionment. DC and the territories are not apportioned;

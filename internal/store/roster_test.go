@@ -103,3 +103,53 @@ func TestApplyRoster_AnUnlistedRowIsKeptDatedAndAListedOneIsCurrentAgain(t *test
 			"the %s row is listed again", table)
 	}
 }
+
+func TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder(t *testing.T) {
+	t.Parallel()
+	// "Last held by" is said only when we saw the source stop listing the
+	// holder mid-term (left_on); an old term of someone still serving
+	// elsewhere is not a last holder.
+	s := open(t)
+	ctx := context.Background()
+	d3, d5, d7, d9 := 3, 5, 7, 9
+	require.NoError(t, s.ApplyRoster(ctx, RosterPlan{At: t0, Source: rosterSrc,
+		People: []Person{
+			{ID: "A000001", Bioguide: "A000001", First: "Ann", Last: "Able", Display: "Ann Able"},
+			{ID: "B000002", Bioguide: "B000002", First: "Bo", Last: "Baker", Display: "Bo Baker", InCongress: true},
+			{ID: "C000003", Bioguide: "C000003", First: "Cy", Last: "Cole", Display: "Cy Cole"},
+			{ID: "D000004", Bioguide: "D000004", First: "Di", Last: "Dunn", Display: "Di Dunn"},
+			{ID: "E000005", Bioguide: "E000005", First: "Ed", Last: "Ely", Display: "Ed Ely"},
+			{ID: "F000006", Bioguide: "F000006", First: "Flo", Last: "Fox", Display: "Flo Fox"},
+		},
+		Terms: []Term{
+			// Ann left OH-3 mid-term: seen, so she is its last holder.
+			{Person: "A000001", Office: "house/OH/3", Body: "house", State: "OH", District: &d3,
+				Start: "2025-01-03", End: "2027-01-03", Party: "Democratic", LeftOn: "2026-11-30"},
+			// Bo held OH-5 long ago and is a senator now: not OH-5's last holder.
+			{Person: "B000002", Office: "house/OH/5", Body: "house", State: "OH", District: &d5,
+				Start: "2001-01-03", End: "2003-01-03", Party: "Republican"},
+			{Person: "B000002", Office: "senate/OH/1", Body: "senate", State: "OH",
+				Start: "2025-01-03", End: "2031-01-03", Party: "Republican", Current: true},
+			// OH-7 emptied twice: Cy left, Di won the special election and
+			// left too. The later leaver is the last holder.
+			{Person: "C000003", Office: "house/OH/7", Body: "house", State: "OH", District: &d7,
+				Start: "2025-01-03", End: "2027-01-03", Party: "Republican", LeftOn: "2025-06-01"},
+			{Person: "D000004", Office: "house/OH/7", Body: "house", State: "OH", District: &d7,
+				Start: "2025-09-01", End: "2027-01-03", Party: "Democratic", LeftOn: "2026-10-01"},
+			// OH-9: Ed left mid-term; Flo won the special election and served
+			// to the end. The seat is empty again, but Flo, not Ed, held it
+			// last, and we did not see her leave: no last holder is named.
+			{Person: "E000005", Office: "house/OH/9", Body: "house", State: "OH", District: &d9,
+				Start: "2025-01-03", End: "2027-01-03", Party: "Republican", LeftOn: "2025-04-01"},
+			{Person: "F000006", Office: "house/OH/9", Body: "house", State: "OH", District: &d9,
+				Start: "2025-08-01", End: "2027-01-03", Party: "Democratic"},
+		},
+	}), "seeding the roster")
+
+	got, err := s.LastHolders(ctx, "OH")
+	require.NoError(t, err, "reading Ohio's last holders")
+	assert.Equal(t, map[string]LastHolder{
+		"house/OH/3": {Person: "A000001", Name: "Ann Able", Party: "Democratic", LeftOn: "2026-11-30"},
+		"house/OH/7": {Person: "D000004", Name: "Di Dunn", Party: "Democratic", LeftOn: "2026-10-01"},
+	}, got, "only members seen leaving mid-term, the latest for a seat emptied twice")
+}

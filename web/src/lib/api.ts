@@ -200,6 +200,58 @@ export interface SearchResult {
   partyCode?: string;
 }
 
+/** One chamber's seats for one state (congress.Delegation). */
+export interface Delegation {
+  seats: number;
+  vacant: number;
+  /** A party code with the most filled seats, or 'even', 'vacant', 'none'; '' is party unknown. */
+  lead: string;
+  /** The two party codes a tie ('even') is drawn with, decided by the server. */
+  stripes?: string[];
+  parties: PartyCount[];
+}
+
+export interface StateSummary {
+  code: string;
+  name: string;
+  kind: 'state' | 'district' | 'territory';
+  voting: boolean;
+  senate: Delegation;
+  house: Delegation;
+}
+
+export interface StatesResponse {
+  states: StateSummary[];
+  sources: SourceLine[];
+}
+
+export interface LastHolder {
+  person: string;
+  name: string;
+  party: string;
+  /** The date the source stopped listing them (YYYY-MM-DD). */
+  leftOn: string;
+}
+
+export interface StateVacancy {
+  body: 'senate' | 'house';
+  district?: number;
+  voting: boolean;
+  lastHolder?: LastHolder;
+}
+
+export interface StateResponse {
+  state: StateSummary;
+  senators: Member[];
+  house: Member[];
+  vacancies: StateVacancy[];
+  /** The Congress whose district lines the map draws; absent without a map. */
+  districtMap?: number;
+  /** The Congress the sitting House members belong to. */
+  houseCongress?: number;
+  sources: SourceLine[];
+}
+
 /** NotFound is a 404 from the API: the thing asked for does not exist. */
 export class NotFound extends Error {}
 

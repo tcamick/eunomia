@@ -2,13 +2,15 @@
 // state so Node's test runner can import it.
 
 export interface Route {
-  name: 'congress' | 'members' | 'person' | 'committees' | 'committee' | 'search' | 'status' | 'notfound';
+  name: 'congress' | 'map' | 'state' | 'members' | 'person' | 'committees' | 'committee' | 'search' | 'status' | 'notfound';
   params: Record<string, string>;
   query: URLSearchParams;
 }
 
 const patterns: [Route['name'], RegExp][] = [
   ['congress', /^\/$/],
+  ['map', /^\/map$/],
+  ['state', /^\/states\/(?<code>[A-Z]{2})$/],
   ['members', /^\/members$/],
   ['person', /^\/people\/(?<id>[A-Z][0-9]{6})$/],
   ['committees', /^\/committees$/],

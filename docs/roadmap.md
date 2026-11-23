@@ -134,7 +134,7 @@ The empty app, built, deployed and monitored the way every later phase will be.
 | Gate | What | When |
 |---|---|---|
 | **G1** The new Congress | After the 120th is sworn in: new members have appeared, departed members have end dates and keep their pages, Home listed the change, the seat totals match the Clerk's and the Senate's own, and the votes job follows the new Congress's numbering | from 2027-01-03, checked again when committee rosters fill in |
-| **G2** New district shapes | When the Census Bureau publishes the 120th Congress's district file: regenerate, and remove the "119th" label | when published |
+| **G2** New district shapes | When the Census Bureau publishes the 120th Congress's district file: regenerate (`make geo` with the new URL and checksum), and set `geo.DistrictShapesCongress` to 120. Until then, from the day the roster lists the 120th's members, state pages draw the 119th's lines plain, with no member on them, and say why (E1b) | when published |
 | **G3** Tagging by hand | A week of real stories, fifty mentions checked, none wrong | a week after E2 deploys |
 | **G4** The owner's devices | Each UI phase's manual line: the owner's phone and laptop | with each UI phase |
 
@@ -154,7 +154,7 @@ Ideas that are not phases yet; each needs the owner's word.
 | — | PRD, plan, roadmap, conventions, agent files | done (owner reviewed, 2026-11-22) | `main` (root commit) | — | 2026-11-22 |
 | E0 | Skeleton and deploy | done, except noop's push (never reached the Pushgateway; its successors' do) | `feat/phase-e0-skeleton` | [phase-e0](acceptance/phase-e0.md) | 2026-11-22 |
 | E1a | Roster and people | done, except the roster's second cluster run (2026-11-24 10:23 UTC) | `feat/phase-e1a-roster` | [phase-e1a](acceptance/phase-e1a.md) | 2026-11-23 |
-| E1b | The map and state pages | not started | | | |
+| E1b | The map and state pages | merged; keyboard check and the owner's phone pending | `feat/phase-e1b-map` | [phase-e1b](acceptance/phase-e1b.md) | 2026-11-23 |
 | E2 | News | not started | | | |
 | E3a | Home | not started | | | |
 | E3b | The rest of government | not started | | | |

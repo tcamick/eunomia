@@ -26,6 +26,21 @@ RUN npm run build
 FROM scratch AS web-dist
 COPY --from=web /src/web/dist /
 
+# geo: the map's shapes (docs/adr/0006). Not part of the image: only
+# `make geo` builds it, after checking the Census file's checksum, and copies
+# the output into web/src/lib/geo. Nothing from the host is mounted, and the
+# packages' install scripts do not run.
+FROM node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d AS geo
+WORKDIR /src/scripts/geo
+COPY scripts/geo/package.json scripts/geo/package-lock.json ./
+RUN npm ci --no-audit --no-fund --ignore-scripts
+COPY scripts/geo/generate.mjs ./
+COPY scripts/geo/input/cb_2024_us_cd119_500k.zip scripts/geo/input/cb_2024_us_cd119_500k.shp scripts/geo/input/cb_2024_us_cd119_500k.dbf ./input/
+RUN node generate.mjs input /out
+
+FROM scratch AS geo-out
+COPY --from=geo /out /
+
 FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS deps
 WORKDIR /src
 COPY go.mod go.sum ./

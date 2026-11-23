@@ -89,7 +89,8 @@ func TestServer_ServingPagesWritesNothing(t *testing.T) {
 
 	before := tablesDigest(t, path)
 	for _, p := range []string{"/api/status", "/api/congress", "/api/members", "/api/people/A000001", "/api/committees",
-		"/api/committees/HSXX", "/api/search?q=able", "/api/people/Z999999", "/portraits/A000001.jpg", "/", "/members"} {
+		"/api/committees/HSXX", "/api/search?q=able", "/api/people/Z999999", "/portraits/A000001.jpg", "/", "/members",
+		"/api/states", "/api/states/OH", "/api/states/DC", "/map", "/states/OH"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequestWithContext(ctx, http.MethodGet, p, nil))
 		assert.Less(t, rec.Code, http.StatusInternalServerError, "GET %s", p)

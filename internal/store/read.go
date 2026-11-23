@@ -376,3 +376,53 @@ func (s *Store) SourceChecks(ctx context.Context) ([]SourceState, error) {
 	}
 	return out, nil
 }
+
+// LastHolder is who held a seat that is now empty, as far as the roster
+// saw: a member the source stopped listing mid-term.
+type LastHolder struct {
+	Person string `json:"person"`
+	Name   string `json:"name"`
+	Party  string `json:"party"`
+	// LeftOn is the date the source stopped listing them (YYYY-MM-DD), not
+	// a date the source gave for their leaving.
+	LeftOn string `json:"leftOn"`
+}
+
+// LastHolders returns, for each of a state's offices that no one holds now,
+// the member the roster saw leave it mid-term, keyed by office id. An old
+// term of a member who moved on is not a last holder: only a term with
+// left_on counts, so "last held by" is said only when it is known.
+func (s *Store) LastHolders(ctx context.Context, state string) (map[string]LastHolder, error) {
+	out := map[string]LastHolder{}
+	// Each empty office's latest term, by when it ended or its holder was
+	// last listed; its holder is named only if we saw them leave mid-term.
+	// A later term that ran its course (a special election's winner who
+	// served to the end) means the earlier leaver is not the last holder.
+	seen := map[string]bool{}
+	err := eachRow(ctx, s.db, `
+		SELECT t.office, p.id, p.display_name, COALESCE(t.party, ''), COALESCE(t.left_on, '')
+		FROM terms t JOIN people p ON p.id = t.person
+		WHERE t.state = ? AND t.unlisted_on IS NULL AND t.current = 0
+		  AND NOT EXISTS (SELECT 1 FROM terms c WHERE c.office = t.office AND c.current = 1 AND c.unlisted_on IS NULL)
+		ORDER BY t.office, COALESCE(t.left_on, t.end) DESC`, func(r *sql.Rows) error {
+		var (
+			office string
+			h      LastHolder
+		)
+		if err := r.Scan(&office, &h.Person, &h.Name, &h.Party, &h.LeftOn); err != nil {
+			return err
+		}
+		if seen[office] {
+			return nil
+		}
+		seen[office] = true // the latest, by the ORDER BY
+		if h.LeftOn != "" {
+			out[office] = h
+		}
+		return nil
+	}, state)
+	if err != nil {
+		return nil, fmt.Errorf("read last holders in %s: %w", state, err)
+	}
+	return out, nil
+}
