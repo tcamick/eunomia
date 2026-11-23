@@ -63,7 +63,7 @@ func TestJob_FirstRunLoadsAndTheSecondSendsTheValidatorsBack(t *testing.T) {
 	assert.Len(t, st.People, 15)
 
 	require.NoError(t, j.Run(ctx), "the second run")
-	require.Len(t, src.calls, 2)
+	require.Len(t, src.calls, 2, "one fetch per run")
 	assert.Equal(t, served, src.calls[1], "the second run asks whether anything changed")
 
 	after, err := s.RosterState(ctx)
@@ -72,7 +72,7 @@ func TestJob_FirstRunLoadsAndTheSecondSendsTheValidatorsBack(t *testing.T) {
 
 	ms, ok, err := s.SourceState(ctx, legislators.SourceLegislators)
 	require.NoError(t, err, "reading the source's state")
-	require.True(t, ok)
+	require.True(t, ok, "the source has been checked")
 	assert.Equal(t, base+"legislators-current.json", ms.URL)
 	assert.Equal(t, `"m1"`, ms.ETag)
 	assert.False(t, ms.CheckedAt.IsZero())

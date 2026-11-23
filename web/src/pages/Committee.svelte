@@ -144,8 +144,7 @@
     font-size: 0.9375rem;
   }
   .title {
-    color: var(--accent);
-    font-weight: 650;
+    font-weight: 700;
   }
   .subs {
     margin-block-start: 2.5rem;

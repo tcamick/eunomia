@@ -271,7 +271,7 @@ type CommitteeSummary struct {
 	Juris   string `json:"jurisdiction,omitempty"`
 }
 
-// leadTitles are the titles that name a committee's chair or ranking member.
+// chairTitles are the titles that name a committee's chair or ranking member.
 const chairTitles = `('Chair', 'Chairman', 'Chairwoman', 'Cochairman')`
 
 // Committees lists the current committees and subcommittees.

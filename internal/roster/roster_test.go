@@ -181,7 +181,7 @@ func TestDiff_AReturningMemberIsAnArrival(t *testing.T) {
 	load(t, s, snap, today)
 	load(t, s, withoutMember(snap, "N000147"), today)
 	p := load(t, s, snap, today)
-	require.Equal(t, []string{KindArrived}, kinds(p.Changes))
+	require.Equal(t, []string{KindArrived}, kinds(p.Changes), "changes after an arrival")
 	assert.Contains(t, p.Changes[0].Summary, "District of Columbia at large")
 }
 
@@ -195,7 +195,7 @@ func TestDiff_APartySwitchIsOneChange(t *testing.T) {
 		l.Terms[last].Party = "Independent"
 	})
 	p := load(t, s, switched, today)
-	require.Equal(t, []string{KindPartyChanged}, kinds(p.Changes))
+	require.Equal(t, []string{KindPartyChanged}, kinds(p.Changes), "changes after a party switch")
 	assert.Contains(t, p.Changes[0].Summary, "from Democratic to Independent", "the party's own name, not the source's 'Democrat'")
 }
 
@@ -209,13 +209,13 @@ func TestDiff_LeadershipGainedAndLost(t *testing.T) {
 		l.Leadership = append(l.Leadership, legislators.LeadershipRole{Title: "Senate Example Whip", Chamber: "senate", Start: "2026-11-20"})
 	})
 	p := load(t, s, gained, today)
-	require.Equal(t, []string{KindLeadershipGained}, kinds(p.Changes))
+	require.Equal(t, []string{KindLeadershipGained}, kinds(p.Changes), "changes after a role is gained")
 
 	ended := edit(t, gained, func(l *legislators.Legislator) {
 		l.Leadership[len(l.Leadership)-1].End = "2026-11-21"
 	})
 	p = load(t, s, ended, today)
-	require.Equal(t, []string{KindLeadershipLost}, kinds(p.Changes))
+	require.Equal(t, []string{KindLeadershipLost}, kinds(p.Changes), "changes after a role is lost")
 }
 
 func TestDiff_ANewChairIsRecorded(t *testing.T) {
@@ -241,7 +241,7 @@ func TestDiff_ANewChairIsRecorded(t *testing.T) {
 	out.Membership["HSED"] = append(out.Membership["HSED"], legislators.Member{Bioguide: "S001231", Side: "majority", Rank: 1, Title: "Chair"})
 
 	p := load(t, s, &out, today)
-	require.Equal(t, []string{KindChairChanged}, kinds(p.Changes))
+	require.Equal(t, []string{KindChairChanged}, kinds(p.Changes), "changes after a new chair")
 	assert.Equal(t, "HSED", p.Changes[0].Committee)
 }
 
@@ -367,10 +367,20 @@ func TestParty_UsesThePartysOwnName(t *testing.T) {
 	assert.Equal(t, "Libertarian", Party("Libertarian"), "any other party is kept as the source gives it")
 }
 
-func TestOrdinal(t *testing.T) {
+func TestOrdinal_UsesTheEnglishSuffixesIncludingTheTeens(t *testing.T) {
 	t.Parallel()
-	tests := map[int]string{1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 11: "11th", 12: "12th", 13: "13th", 21: "21st", 22: "22nd", 52: "52nd", 111: "111th"}
-	for n, want := range tests {
-		assert.Equal(t, want, Ordinal(n), "ordinal of %d", n)
+	tests := map[string]struct {
+		n    int
+		want string
+	}{
+		"1st": {1, "1st"}, "2nd": {2, "2nd"}, "3rd": {3, "3rd"}, "4th": {4, "4th"},
+		"the teens take th": {11, "11th"}, "12th": {12, "12th"}, "13th": {13, "13th"},
+		"21st": {21, "21st"}, "22nd": {22, "22nd"}, "52nd": {52, "52nd"}, "a hundred and eleventh": {111, "111th"},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, Ordinal(tc.n), "ordinal of %d", tc.n)
+		})
 	}
 }

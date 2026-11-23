@@ -22,8 +22,8 @@ func readFixture(t *testing.T, name string) []byte {
 func TestParseLegislators_ReadsTheFixture(t *testing.T) {
 	t.Parallel()
 	ls, err := ParseLegislators(readFixture(t, "legislators-current.json"), 1)
-	require.NoError(t, err)
-	require.Len(t, ls, 15)
+	require.NoError(t, err, "parsing the members fixture")
+	require.Len(t, ls, 15, "members in the fixture")
 
 	byID := map[string]Legislator{}
 	for _, l := range ls {
@@ -32,14 +32,14 @@ func TestParseLegislators_ReadsTheFixture(t *testing.T) {
 	sanders := byID["S000033"]
 	assert.Equal(t, "Independent", sanders.Current().Party)
 	assert.Equal(t, "Democrat", sanders.Current().Caucus, "the caucus is kept beside the party")
-	require.NotNil(t, sanders.Current().Class)
+	require.NotNil(t, sanders.Current().Class, "Sanders's senate class")
 
 	kiley := byID["K000401"]
 	require.Len(t, kiley.Current().PartyAffiliations, 2, "a mid-term switch keeps both spans")
 	assert.Equal(t, "Independent", kiley.Current().Party)
 
 	norton := byID["N000147"]
-	require.NotNil(t, norton.Current().District)
+	require.NotNil(t, norton.Current().District, "Norton's district")
 	assert.Equal(t, 0, *norton.Current().District, "a delegate's seat is at large")
 	assert.Equal(t, "DC", norton.Current().State)
 
@@ -77,10 +77,10 @@ func TestParseLegislators_Validation(t *testing.T) {
 			t.Parallel()
 			_, err := ParseLegislators([]byte("["+tc.json+"]"), 1)
 			if tc.wantErr == "" {
-				require.NoError(t, err)
+				require.NoError(t, err, "parsing a valid member")
 				return
 			}
-			require.Error(t, err)
+			require.Error(t, err, "parsing an invalid member")
 			assert.Contains(t, err.Error(), tc.wantErr)
 		})
 	}
@@ -91,7 +91,7 @@ func TestParseLegislators_TheSameMemberTwiceIsRefused(t *testing.T) {
 	one := `{"id":{"bioguide":"A000001"},"name":{"first":"Ann","last":"Example"},
 	  "terms":[{"type":"rep","start":"2025-01-03","end":"2027-01-03","state":"CA","district":12}]}`
 	_, err := ParseLegislators([]byte("["+one+","+one+"]"), 1)
-	require.Error(t, err)
+	require.Error(t, err, "parsing a file that lists a member twice")
 	assert.Contains(t, err.Error(), "twice")
 }
 
@@ -101,22 +101,33 @@ func TestParseLegislators_KeepsOnlyHTTPSLinksAndUnknownBirthdays(t *testing.T) {
 	  "terms":[{"type":"rep","start":"2025-01-03","end":"2027-01-03","state":"CA","district":1,"url":"javascript:alert(1)"},
 	           {"type":"rep","start":"2023-01-03","end":"2025-01-03","state":"CA","district":1,"url":"http://example.house.gov"}]}]`
 	ls, err := ParseLegislators([]byte(body), 1)
-	require.NoError(t, err)
+	require.NoError(t, err, "parsing a member with unsafe links")
 	assert.Empty(t, ls[0].Terms[0].URL, "a javascript: link is dropped")
 	assert.Empty(t, ls[0].Terms[1].URL, "an http link is dropped")
 	assert.Empty(t, ls[0].Bio.Birthday, "an impossible birthday is unknown, not an error")
 }
 
-func TestName_Display(t *testing.T) {
+func TestName_DisplayUsesTheOfficialNameOrTheNicknameWithTheSuffix(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "Bernard Sanders", Name{First: "Bernard", Last: "Sanders", OfficialFull: "Bernard Sanders"}.Display())
-	assert.Equal(t, "Bob Example Jr.", Name{First: "Robert", Nickname: "Bob", Last: "Example", Suffix: "Jr."}.Display())
+	tests := map[string]struct {
+		name Name
+		want string
+	}{
+		"the official full name when given": {name: Name{First: "Bernard", Last: "Sanders", OfficialFull: "Bernard Sanders"}, want: "Bernard Sanders"},
+		"a nickname and a suffix otherwise": {name: Name{First: "Robert", Nickname: "Bob", Last: "Example", Suffix: "Jr."}, want: "Bob Example Jr."},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, tc.name.Display(), "display name of %+v", tc.name)
+		})
+	}
 }
 
 func TestParseCommittees_SubcommitteesTakeTheirParentsPrefix(t *testing.T) {
 	t.Parallel()
 	cs, err := ParseCommittees(readFixture(t, "committees-current.json"))
-	require.NoError(t, err)
+	require.NoError(t, err, "parsing the committees fixture")
 	byID := map[string]Committee{}
 	for _, c := range cs {
 		byID[c.ID] = c
@@ -139,7 +150,7 @@ func TestParseCommittees_SubcommitteesTakeTheirParentsPrefix(t *testing.T) {
 func TestParseMembership_ReadsSidesAndTitles(t *testing.T) {
 	t.Parallel()
 	m, err := ParseMembership(readFixture(t, "committee-membership-current.json"))
-	require.NoError(t, err)
+	require.NoError(t, err, "parsing the membership fixture")
 	require.NotEmpty(t, m["HSED"])
 	for _, x := range m["HSED"] {
 		assert.Contains(t, []string{"majority", "minority"}, x.Side)
@@ -176,7 +187,7 @@ func TestClient_FirstFetchReadsAllThree(t *testing.T) {
 	t.Parallel()
 	g := &fakeGetter{bodies: fixtures(t)}
 	snap, next, unchanged, err := NewClient(g, "https://example.org/base", 1).Fetch(context.Background(), Validators{})
-	require.NoError(t, err)
+	require.NoError(t, err, "fetching the three files")
 	assert.False(t, unchanged)
 	assert.Len(t, snap.Legislators, 15)
 	assert.NotEmpty(t, snap.Committees)
@@ -194,7 +205,7 @@ func TestClient_NothingChangedCostsThreeConditionalRequests(t *testing.T) {
 		Membership: fetch.Validators{ETag: `"committee-membership"`},
 	}
 	snap, next, unchanged, err := NewClient(g, "https://example.org/", 1).Fetch(context.Background(), prev)
-	require.NoError(t, err)
+	require.NoError(t, err, "fetching with validators that match")
 	assert.True(t, unchanged)
 	assert.Nil(t, snap)
 	assert.Equal(t, prev, next)
@@ -210,9 +221,9 @@ func TestClient_OneChangedFileRefetchesTheOthersInFull(t *testing.T) {
 		Membership: fetch.Validators{ETag: `"committee-membership"`},
 	}
 	snap, _, unchanged, err := NewClient(g, "https://example.org/", 1).Fetch(context.Background(), prev)
-	require.NoError(t, err)
+	require.NoError(t, err, "fetching after one file changed")
 	assert.False(t, unchanged)
-	require.NotNil(t, snap)
+	require.NotNil(t, snap, "the snapshot after one file changed")
 	assert.NotEmpty(t, snap.Committees, "the unchanged files were read again so the snapshot is whole")
 	assert.Equal(t, []string{
 		`legislators etag="old"`, `committees etag="committees"`, `committee-membership etag="committee-membership"`,

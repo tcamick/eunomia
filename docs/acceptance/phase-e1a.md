@@ -15,7 +15,7 @@ Roadmap `docs/roadmap.md`, E1a; plan `docs/implementation-plan.md` §4, E1a; PRD
 ## Sources (checked 2026-11-22)
 - `https://unitedstates.github.io/congress-legislators/legislators-current.json`, `committees-current.json`, `committee-membership-current.json` — the `unitedstates/congress-legislators` project; public domain (CC0). No key, no stated rate limit; fetched once a day with conditional requests.
 - `https://unitedstates.github.io/images/congress/225x275/<bioguide>.jpg` — the `unitedstates/images` project; public domain works of the US government. Fetched once per member, then conditionally.
-- House seats per state: Census Bureau, "Table 1. Apportionment Population and Number of Representatives by State: 2020 Census" (`https://www2.census.gov/programs-surveys/decennial/2020/data/apportionment/apportionment-2020-table01.xlsx`), checked 2026-11-22; embedded as `internal/geo/apportionment.go`.
+- House seats per state: Census Bureau, "Table 1. Apportionment Population and Number of Representatives by State: 2020 Census" (`https://www2.census.gov/programs-surveys/decennial/2020/data/apportionment/apportionment-2020-table01.xlsx`), checked 2026-11-22; embedded in `internal/geo/geo.go`.
 
 ## Open questions found during the phase
 - The source lists two senators whose appointed terms ended on 2026-11-03 (`end-type: special-election`) and who are still in the current file. The roster shows what the source lists, with the term's end date; it does not decide on its own that the seat is vacant. Confirm this is wanted.

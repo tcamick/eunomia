@@ -76,7 +76,7 @@ func TestRun_WritesUnchangedAndMissing(t *testing.T) {
 	got, err := os.ReadFile(filepath.Join(dir, "A000001.jpg"))
 	require.NoError(t, err, "reading the written portrait")
 	assert.Equal(t, jpeg, got)
-	require.Len(t, st.records, 3)
+	require.Len(t, st.records, 3, "one record per member checked")
 	assert.Equal(t, store.PortraitState{Person: "A000001", File: "A000001.jpg", ETag: `"a"`, CheckedAt: t0,
 		Source: "https://img/A000001.jpg", FetchedAt: t0}, st.records[0])
 	assert.Equal(t, "B000002.jpg", st.records[1].File, "an unchanged portrait keeps its file")
@@ -130,10 +130,23 @@ func TestRun_NothingDueAsksNothing(t *testing.T) {
 	assert.Empty(t, g.asked)
 }
 
-func TestValidName(t *testing.T) {
+func TestValidName_AcceptsOnlyABioguideIDDotJpg(t *testing.T) {
 	t.Parallel()
-	assert.True(t, ValidName("A000001.jpg"))
-	for _, bad := range []string{"../etc/passwd", "A000001.png", "a000001.jpg", "A000001.jpg/..", ""} {
-		assert.False(t, ValidName(bad), "%q is not a portrait name", bad)
+	tests := map[string]struct {
+		name string
+		want bool
+	}{
+		"a Bioguide id and .jpg":  {name: "A000001.jpg", want: true},
+		"a path out of the dir":   {name: "../etc/passwd", want: false},
+		"another file type":       {name: "A000001.png", want: false},
+		"a lower-case id":         {name: "a000001.jpg", want: false},
+		"a name with a path tail": {name: "A000001.jpg/..", want: false},
+		"nothing":                 {name: "", want: false},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, ValidName(tc.name), "ValidName(%q)", tc.name)
+		})
 	}
 }

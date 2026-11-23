@@ -42,7 +42,7 @@ func fullCongress() []store.Sitting {
 func TestSummarize_AFullCongressHasNoVacancies(t *testing.T) {
 	t.Parallel()
 	cs := Summarize(fullCongress(), nil)
-	require.Len(t, cs, 2)
+	require.Len(t, cs, 2, "one summary per chamber")
 	senate, house := cs[0], cs[1]
 	assert.Equal(t, 100, senate.Seats)
 	assert.Equal(t, 100, senate.Filled)
@@ -75,10 +75,10 @@ func TestSummarize_FindsVacancies(t *testing.T) {
 	}
 	cs := Summarize(kept, nil)
 	senate, house := cs[0], cs[1]
-	require.Len(t, senate.Vacancies, 1)
+	require.Len(t, senate.Vacancies, 1, "Senate vacancies")
 	assert.Equal(t, "OH", senate.Vacancies[0].State)
 	assert.Equal(t, 99, senate.Filled)
-	require.Len(t, house.Vacancies, 2)
+	require.Len(t, house.Vacancies, 2, "House vacancies")
 	byState := map[string]Vacancy{}
 	for _, v := range house.Vacancies {
 		byState[v.State] = v
@@ -123,17 +123,25 @@ func TestSummarize_LeadersInTheFixedOrder(t *testing.T) {
 	}
 	assert.Equal(t, []string{"Senate Majority Leader", "Senate Minority Whip"}, senateTitles,
 		"top posts only, in the page's order")
-	require.Len(t, cs[1].Leaders, 1)
+	require.Len(t, cs[1].Leaders, 1, "House leaders listed")
 	assert.Equal(t, "s", cs[1].Leaders[0].Person)
 }
 
-func TestPartyCode(t *testing.T) {
+func TestPartyCode_GivesEachPartyItsMarkAndGuessesNone(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "D", PartyCode("Democratic"))
-	assert.Equal(t, "R", PartyCode("Republican"))
-	assert.Equal(t, "I", PartyCode("Independent"))
-	assert.Equal(t, "O", PartyCode("Libertarian"))
-	assert.Empty(t, PartyCode(""), "an unknown party has no colour, not a guessed one")
+	tests := map[string]struct{ party, want string }{
+		"Democratic":                          {party: "Democratic", want: "D"},
+		"Republican":                          {party: "Republican", want: "R"},
+		"Independent":                         {party: "Independent", want: "I"},
+		"any other party":                     {party: "Libertarian", want: "O"},
+		"an unknown party gets no party mark": {party: "", want: ""},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, PartyCode(tc.party), "code for %q", tc.party)
+		})
+	}
 }
 
 func TestSummarize_EveryListIsAnArrayInJSON(t *testing.T) {
