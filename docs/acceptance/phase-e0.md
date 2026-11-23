@@ -1,6 +1,6 @@
 # Phase E0 — Skeleton and deploy acceptance
 
-Branch: `feat/phase-e0-skeleton` · Started: 2026-11-22 · Merged:
+Branch: `feat/phase-e0-skeleton` · Started: 2026-11-22 · Merged: 2026-11-22
 
 Roadmap `docs/roadmap.md`, E0; plan `docs/implementation-plan.md` §4, E0; PRD §8, §9.
 
@@ -14,7 +14,7 @@ Roadmap `docs/roadmap.md`, E0; plan `docs/implementation-plan.md` §4, E0; PRD �
 
 ## Open questions found during the phase
 - Outside this repository, the plan's E0 step "in Plutus, with the owner's go-ahead: the Flux objects and the `claude-ops` grant" is on Plutus branch `chore/eunomia-flux` (go-ahead given 2026-11-22); every cluster line above waits on it landing.
-- The fifth done-when line was rewritten by the author (moving the `make land` check to E1a); the owner's agreement is to be recorded here before E0 merges.
+- The fifth done-when line was rewritten by the author (moving the `make land` check to E1a). The owner agreed, 2026-11-22.
 - Both processes apply migrations when they open the file, so the server writes `schema_migrations` and creates tables at startup. Decided as an exception and recorded in ADR 0003 and go-conventions, Layout (review finding 5).
 
 ## Review findings not fixed, and why
