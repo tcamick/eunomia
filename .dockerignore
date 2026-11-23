@@ -1,0 +1,8 @@
+.git
+.claude
+bin/
+data/
+cover.out
+web/node_modules/
+web/dist/
+scripts/geo/node_modules/
