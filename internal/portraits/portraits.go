@@ -72,8 +72,11 @@ func NewJob(get Getter, st Store, base, dir string, now func() time.Time) *Job {
 	return &Job{get: get, st: st, base: base, dir: dir, now: now, maxAge: DefaultMaxAge, perRun: DefaultPerRun}
 }
 
+// JobName is the job's registered name.
+const JobName = "portraits"
+
 // Name is the job's registered name.
-func (*Job) Name() string { return "portraits" }
+func (*Job) Name() string { return JobName }
 
 // jpegMagic starts every JPEG file.
 var jpegMagic = []byte{0xFF, 0xD8, 0xFF}
@@ -182,7 +185,7 @@ func (j *Job) one(ctx context.Context, ps store.PortraitState, name string) (res
 // writeAtomic writes b to path through a temporary file in the same
 // directory, so the server never serves half an image.
 func writeAtomic(path string, b []byte) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".portrait-*")
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".portrait-*.tmp") // .tmp: never copied by a backup
 	if err != nil {
 		return fmt.Errorf("write portrait: %w", err)
 	}

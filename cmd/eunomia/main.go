@@ -25,6 +25,7 @@ import (
 	"github.com/rs/zerolog"
 
 	curated "github.com/tcamick/eunomia/config"
+	"github.com/tcamick/eunomia/internal/backup"
 	"github.com/tcamick/eunomia/internal/config"
 	"github.com/tcamick/eunomia/internal/fetch"
 	"github.com/tcamick/eunomia/internal/httpapi"
@@ -174,6 +175,8 @@ type deps struct {
 	dataDir string
 	// legislatorsURL and portraitsURL are the sources' directories (flags).
 	legislatorsURL, portraitsURL string
+	// backupDir is -backup-dir: the backup jobs' directory on seabass.
+	backupDir string
 }
 
 // fetchSources are every source a job may fetch: the values of the fetch
@@ -231,11 +234,36 @@ func buildJobs(d deps) ([]jobs.Job, error) {
 	if err != nil {
 		return nil, err
 	}
+	var snap backup.Snapshotter
+	if d.st != nil {
+		snap = d.st
+	}
 	return []jobs.Job{
 		r,
 		portraits.NewJob(d.get, d.st, d.portraitsURL, filepath.Join(d.dataDir, portraitDir), time.Now),
 		n,
+		&backup.Job{DataDir: d.dataDir, Dest: d.backupDir, DB: snap, Now: time.Now},
+		&backup.RestoreCheck{Dest: d.backupDir, Open: openVerifier, Now: time.Now},
 	}, nil
+}
+
+// openVerifier opens and migrates a restored copy of the database, as the
+// server opens its own.
+func openVerifier(ctx context.Context, path string) (backup.Verifier, error) {
+	return store.Open(ctx, path, time.Now)
+}
+
+// jobMaxAge is how long each job may go without a success before the
+// status page calls it overdue: its CronJob's interval (k8s/app) and some
+// slack, so a job that fails, or whose pod never starts (the backup's, with
+// seabass unplugged), shows within a day. Every registered job has one
+// (TestJobs_EachHasACronJobAndALimit).
+var jobMaxAge = map[string]time.Duration{
+	roster.JobName:        26 * time.Hour,
+	portraits.JobName:     26 * time.Hour,
+	news.JobName:          90 * time.Minute,
+	backup.JobName:        26 * time.Hour,
+	backup.RestoreJobName: 7*24*time.Hour + 2*time.Hour,
 }
 
 // portraitDir is the portraits' directory inside the data directory.
@@ -256,7 +284,7 @@ func runJob(ctx context.Context, cfg *config.Config, st *store.Store, name strin
 		return exitFail
 	}
 	js, err := buildJobs(deps{st: st, get: client, reg: reg, run: name, dataDir: cfg.DataDir,
-		legislatorsURL: cfg.LegislatorsURL, portraitsURL: cfg.PortraitsURL})
+		legislatorsURL: cfg.LegislatorsURL, portraitsURL: cfg.PortraitsURL, backupDir: cfg.BackupDir})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not build the jobs")
 		return exitFail
@@ -316,7 +344,7 @@ func serve(ctx context.Context, cfg *config.Config, st *store.Store, registry *j
 	}
 	app, err := httpapi.New(httpapi.Options{
 		Store: st, UI: web.FS(), Version: version.Version, Now: time.Now, Log: *log, Registerer: reg,
-		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(),
+		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(), MaxAge: jobMaxAge,
 		News: st, Feeds: feeds,
 	})
 	if err != nil {
