@@ -154,7 +154,7 @@ Ideas that are not phases yet; each needs the owner's word.
 | — | PRD, plan, roadmap, conventions, agent files | done (owner reviewed, 2026-11-22) | `main` (root commit) | — | 2026-11-22 |
 | E0 | Skeleton and deploy | done, except noop's push (never reached the Pushgateway; its successors' do) | `feat/phase-e0-skeleton` | [phase-e0](acceptance/phase-e0.md) | 2026-11-22 |
 | E1a | Roster and people | done, except the roster's second cluster run (2026-11-24 10:23 UTC) | `feat/phase-e1a-roster` | [phase-e1a](acceptance/phase-e1a.md) | 2026-11-23 |
-| E1b | The map and state pages | not started | | | |
+| E1b | The map and state pages | merged; keyboard check and the owner's phone pending | `feat/phase-e1b-map` | [phase-e1b](acceptance/phase-e1b.md) | 2026-11-23 |
 | E2 | News | not started | | | |
 | E3a | Home | not started | | | |
 | E3b | The rest of government | not started | | | |

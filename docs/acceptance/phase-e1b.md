@@ -1,6 +1,6 @@
 # Phase E1b — The map and state pages acceptance
 
-Branch: `feat/phase-e1b-map` · Started: 2026-11-23 · Merged:
+Branch: `feat/phase-e1b-map` · Started: 2026-11-23 · Merged: 2026-11-23
 
 Roadmap `docs/roadmap.md`, E1b; plan `docs/implementation-plan.md` §4, E1b; PRD §3, §6.2, §7, §9.
 
@@ -35,6 +35,10 @@ Reviewer pass 2, 2026-11-23: two blocking, three should-fix, four nits; all fixe
 
 Reviewer pass 3, 2026-11-23: one blocking, no should-fix, no nits; fixed.
 - **Blocking:** pass 2's fix totalled seats per colour code, so a Green's and a Libertarian's seats were added together under O while each major party was counted alone (PRD §3, the same arithmetic). Seats are now totalled per party (by name, whatever the caucus, so two Independents caucusing apart are still one party), and never across parties; the parties tied for the most seats give the lead, or one code when they all share it, or a tie striped with their first two codes in a fixed letter order. Tests: R 2 v. Independent 1 + 1 caucusing apart is a tie (I, R); D 1, Green 1, Libertarian 1 is a three-way tie (D, O); R 2, Green 1, Libertarian 1 is led by R; Green 1 and Libertarian 1 alone lead as O; D, I, R 1 each is striped D and I.
+
+Reviewer pass 4, 2026-11-23 (the per-party fix only): the fix is correct; one test name and three comments still described the replaced rule, renamed and reworded.
+
+**Owner's agreement, 2026-11-23:** E1b lands with the keyboard-alone check open (line 3); the owner checks it on the live site after landing, as for E1a, and anything found is fixed forward. The owner's phone check is pending as well.
 
 ## Manual verifications
 - The map (both modes) and state pages (California, Florida, Rhode Island, Wyoming, DC) at 1280 px light and dark, at 360 px, and the map at 640 CSS px with scale factor 2 (200% zoom), on the live roster: shapes, stripes for ties, call-outs, territory boxes, labels and the list all legible; nothing clipped after two fixes (below) · Claude · 2026-11-23 · Chrome headless on neptune
