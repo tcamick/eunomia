@@ -12,6 +12,14 @@ GOVULNCHECK ?= $(LOCALBIN)/govulncheck-$(GOVULNCHECK_VERSION)
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS = -X github.com/tcamick/eunomia/internal/version.Version=$(VERSION)
 
+# The map's district shapes (make geo): the Census Bureau's cartographic
+# boundary file for the 119th Congress, pinned by checksum.
+GEO_CD_URL := https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_cd119_500k.zip
+GEO_CD_ZIP := scripts/geo/input/cb_2024_us_cd119_500k.zip
+GEO_CD_SHA256 := 2b4238aed7e865df75d0c9cfcd8dffa1b79007b24519ecc4b213e683078b031a
+# The Node image the Dockerfile's web stage uses.
+NODE_IMAGE := node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
+
 .PHONY: all
 all: build
 
@@ -61,6 +69,16 @@ web: ## Build the frontend into web/dist with the host's Node 22 (npm ci, tests,
 .PHONY: web-docker
 web-docker: ## Build the frontend in Docker (Node 22) and copy web/dist out.
 	docker build --target web-dist --output type=local,dest=web/dist .
+
+.PHONY: geo
+geo: ## Regenerate the map's shapes into web/src/lib/geo (Node 22 in Docker; docs/adr/0006).
+	mkdir -p scripts/geo/input web/src/lib/geo
+	test -f $(GEO_CD_ZIP) || curl -fsS -m 300 -o $(GEO_CD_ZIP) $(GEO_CD_URL)
+	echo "$(GEO_CD_SHA256)  $(GEO_CD_ZIP)" | sha256sum -c --quiet -
+	cd scripts/geo/input && python3 -I -m zipfile -e cb_2024_us_cd119_500k.zip .
+	docker run --rm --user $$(id -u):$$(id -g) -e HOME=/tmp -e npm_config_cache=/tmp/.npm \
+	  -v $(CURDIR)/scripts/geo:/geo -v $(CURDIR)/web/src/lib/geo:/out -w /geo $(NODE_IMAGE) \
+	  sh -c 'npm ci --no-audit --no-fund && node generate.mjs input /out'
 
 .PHONY: build
 build: ## Build bin/eunomia for the host (static, no CGO).

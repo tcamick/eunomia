@@ -1,0 +1,17 @@
+{
+  "name": "eunomia-geo",
+  "private": true,
+  "description": "Generates the map's state shapes and each state's district shapes as committed TypeScript modules (docs/adr/0006). Run by `make geo`, in Node 22 in Docker.",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs"
+  },
+  "devDependencies": {
+    "d3-geo": "3.1.1",
+    "shapefile": "0.6.6",
+    "topojson-client": "3.1.0",
+    "topojson-server": "3.0.1",
+    "topojson-simplify": "3.0.3",
+    "us-atlas": "3.0.1"
+  }
+}
