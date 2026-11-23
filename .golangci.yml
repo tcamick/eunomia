@@ -1,0 +1,81 @@
+# golangci-lint v2 configuration: Plutus's set (docs/go-conventions.md, Lint
+# and build), with the local import prefix changed.
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags: [integration]
+
+linters:
+  default: none
+  enable:
+    - contextcheck   # context passed through, not replaced
+    - copyloopvar
+    - dupl
+    - errcheck
+    - errorlint      # %w wrapping; errors.Is/As instead of == and type switches
+    - forbidigo      # no time.Sleep in tests, no fmt.Print* outside cmd/
+    - goconst
+    - gocyclo
+    - gosec          # injection, weak crypto, file permissions, server timeouts
+    - govet
+    - ineffassign
+    - lll
+    - loggercheck    # zerolog key/value pairs are well formed
+    - misspell
+    - nakedret
+    - noctx          # HTTP requests carry a context
+    - prealloc
+    - promlinter     # Prometheus metric naming: units, _total, help text
+    - revive
+    - staticcheck
+    - testifylint    # require vs assert and testify idioms
+    - thelper        # test helpers call t.Helper()
+    - tparallel      # t.Parallel() used consistently within a test
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^time\.Sleep$
+          msg: "no fixed delays in tests: poll with a timeout or inject a clock"
+        - pattern: ^fmt\.Print(f|ln)?$
+          msg: "log through zerolog or return the value; fmt.Print* only in cmd/"
+    loggercheck:
+      zerolog: true
+    lll:
+      line-length: 140
+    gocyclo:
+      min-complexity: 20
+    revive:
+      rules:
+        - name: exported
+          arguments: ["checkPrivateReceivers", "disableStutteringCheck"]
+  exclusions:
+    rules:
+      - path-except: _test\.go
+        linters: [forbidigo]
+        text: "time.Sleep"
+      # Command entry points may print to stdout/stderr; a failed write to
+      # the terminal has no useful handling.
+      - path: cmd/
+        linters: [forbidigo, errcheck]
+        text: "fmt\\.(F?[Pp]rint)"
+      # Tests may repeat setup, use long literal lines, and open files under
+      # t.TempDir() (G304).
+      - path: _test\.go
+        linters: [dupl, lll, goconst]
+      - path: _test\.go
+        linters: [gosec]
+        text: "G304"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/tcamick/eunomia
