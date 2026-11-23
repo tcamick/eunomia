@@ -87,7 +87,7 @@ The empty app, built, deployed and monitored the way every later phase will be.
 
 ## E4b — Bills, laws, orders and scores (1–2 sessions)
 *What became law, and what did the President sign?*
-- **Needs from the owner:** the api.data.gov key in Secret Manager and `tofu apply`.
+- **Needs from the owner:** the api.data.gov key in Secret Manager and `tofu apply`; and, before that key reaches the `eunomia` namespace, a decision on `claude-ops`' Job grant there, since a Job it creates could mount the key (k8s-conventions rule 11).
 - **Done when:**
   - A vote on a bill links to the bill's page, which shows title, sponsor and status and links to Congress.gov.
   - Laws signed and executive orders issued since the last visit appear on Home.

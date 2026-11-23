@@ -11,12 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tcamick/eunomia/internal/config"
 	"github.com/tcamick/eunomia/internal/legislators"
 	"github.com/tcamick/eunomia/internal/portraits"
+	"github.com/tcamick/eunomia/internal/roster"
 	"github.com/tcamick/eunomia/internal/store"
 )
 
@@ -118,4 +120,32 @@ func TestConfig_SourceDefaultsAreTheAdaptersPublishedDirectories(t *testing.T) {
 	// holds them to the adapters' own.
 	assert.Equal(t, legislators.DefaultBase, config.DefaultLegislatorsURL)
 	assert.Equal(t, portraits.DefaultBase, config.DefaultPortraitsURL)
+}
+
+func TestBuildJobs_OnlyTheRunningJobRegistersItsMetrics(t *testing.T) {
+	t.Parallel()
+	// A pushed family belongs to the job that ran: the roster counter is
+	// pushed by a roster run, and by no other (go-conventions, Metrics).
+	tests := map[string]struct {
+		run        string
+		wantRoster bool
+	}{
+		"a roster run registers the roster counter":     {run: roster.JobName, wantRoster: true},
+		"a portraits run does not register the counter": {run: "portraits", wantRoster: false},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			reg := prometheus.NewRegistry()
+			_, err := buildJobs(deps{reg: reg, run: tc.run})
+			require.NoError(t, err, "building the jobs for a %s run", tc.run)
+			families, err := reg.Gather()
+			require.NoError(t, err, "gathering the registry")
+			var found bool
+			for _, f := range families {
+				found = found || f.GetName() == "eunomia_roster_changes_total"
+			}
+			assert.Equal(t, tc.wantRoster, found, "eunomia_roster_changes_total registered for a %s run", tc.run)
+		})
+	}
 }

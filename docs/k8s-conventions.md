@@ -29,7 +29,7 @@ The `GitRepository` and the two `Kustomization`s that point here (`eunomia`, and
 8. **Requests and limits** on every container; a memory limit always, no CPU limit.
 9. **Probes:** the server has readiness and liveness on `/healthz`.
 10. **Monitoring objects need beholder's CRDs.** They live in `k8s/monitoring/`, their own Flux Kustomization depending on `beholder`, so a broken monitoring stack never holds up a deploy.
-11. **`claude-ops` reads, and may only create Jobs,** and it cannot read Secrets (`k8s/app/claude-ops.yaml`, modelled on beholder's). Creating Jobs lets a session run a CronJob now (`kubectl create job --from=cronjob/<name>`); the owner granted it on 2026-11-23. Any wider write is the owner's decision.
+11. **`claude-ops` reads, and may only create Jobs,** and it cannot read Secrets (`k8s/app/claude-ops.yaml`, modelled on beholder's). Creating Jobs lets a session run a CronJob now (`kubectl create job --from=cronjob/<name>`); the owner granted it on 2026-11-23. A created Job could mount a Secret, so the grant holds only while the namespace has none: before the first Secret lands (E4b's key), the owner decides whether to drop the grant or move the Secret's consumer elsewhere. Any wider write is the owner's decision.
 12. Render before pushing: `kubectl kustomize k8s/app` and `kubectl kustomize k8s/monitoring` must succeed. The reviewer runs both.
 
 ## Definition of done

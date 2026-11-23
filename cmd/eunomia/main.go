@@ -195,7 +195,7 @@ func buildJobs(d deps) ([]jobs.Job, error) {
 	}
 	src := legislators.NewClient(d.get, d.legislatorsURL, legislators.MinMembers)
 	var rosterReg prometheus.Registerer
-	if d.run == "roster" {
+	if d.run == roster.JobName {
 		rosterReg = d.reg
 	}
 	r, err := roster.NewJob(src, d.st, d.legislatorsURL, time.Now, rosterReg)

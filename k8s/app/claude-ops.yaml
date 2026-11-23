@@ -8,9 +8,11 @@
 # (`kubectl create job --from=cronjob/roster …`) after a deploy or a
 # failure (owner, 2026-11-23). Kubernetes cannot limit that to copies of
 # the CronJobs: a created Job may run any image and mount the data volume.
-# The namespace's guards still hold (Restricted pods, the NetworkPolicy,
-# no Secrets here), and it cannot delete or change anything else. No
-# secrets.
+# The namespace's guards still hold (Restricted pods, the NetworkPolicy),
+# and it cannot delete or change anything else. It cannot read Secrets
+# directly, but a Job it creates could mount one: that is harmless only
+# while the namespace holds none. Revisit this grant before E4b puts the
+# api.data.gov key here (docs/roadmap.md, E4b).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

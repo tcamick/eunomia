@@ -63,7 +63,10 @@ func NewJob(src Source, st Store, base string, now func() time.Time, reg prometh
 }
 
 // Name is the job's registered name.
-func (*Job) Name() string { return "roster" }
+func (*Job) Name() string { return JobName }
+
+// JobName is the roster job's registered name.
+const JobName = "roster"
 
 var sourceNames = []string{legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership}
 
