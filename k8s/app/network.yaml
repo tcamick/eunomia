@@ -1,0 +1,100 @@
+# Who may talk to Eunomia's pods, and where they may go. k3s enforces these,
+# so they are a real boundary (docs/k8s-conventions.md, rule 4). The server
+# has no login: this policy and the tailnet are what keep others out.
+#
+# In: only the Tailscale proxy, on the app's port; and Prometheus on the
+# internal port, which serves /metrics.
+# Out: the cluster's DNS for every pod. The internet on 443 (the public
+# sources), but no private or link-local address, for the job pods only: the
+# server fetches nothing, so it cannot be made to.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: eunomia
+  namespace: eunomia
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tailscale
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 8081
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# The job pods fetch from the public sources, over https only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: eunomia-jobs-to-internet
+  namespace: eunomia
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: eunomia-job
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 169.254.0.0/16
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 100.64.0.0/10
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# The job pods alone may push their gauges to beholder's Pushgateway.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: eunomia-jobs-to-pushgateway
+  namespace: eunomia
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: eunomia-job
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus-pushgateway
+      ports:
+        - protocol: TCP
+          port: 9091

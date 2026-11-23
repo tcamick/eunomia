@@ -1,0 +1,21 @@
+# Eunomia's monitoring: the PodMonitor and the Grafana dashboard. Its own
+# Flux Kustomization (eunomia-monitoring, declared in Plutus's
+# deploy/k8s/clusters/neptune/eunomia.yaml) that depends on beholder for the
+# PodMonitor CRD, so a broken monitoring stack never holds up a deploy
+# (docs/k8s-conventions.md, rule 10).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - podmonitor.yaml
+# Grafana's sidecar loads every ConfigMap labelled grafana_dashboard: "1", in
+# any namespace. The JSON is generated: edit scripts/dashboard.py and run
+# `python3 -I scripts/dashboard.py` from the repository root.
+configMapGenerator:
+  - name: eunomia-dashboard
+    namespace: eunomia
+    files:
+      - eunomia-dashboard.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"

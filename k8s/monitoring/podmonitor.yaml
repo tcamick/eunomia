@@ -1,0 +1,22 @@
+# What Prometheus (beholder, in namespace monitoring) scrapes of Eunomia: the
+# server's /metrics on the internal port, which network.yaml opens to
+# Prometheus alone. It includes each job's last outcome, read from the job
+# history at scrape time. The job pods are not scraped: they live seconds
+# and push their gauges to the Pushgateway instead (beholder ADR 0002).
+#
+# honorLabels keeps the app's own job label (a job's name, as in
+# eunomia_job_last_run_ok{job="noop"}) instead of renaming it exported_job.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: eunomia
+  namespace: eunomia
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eunomia
+  podMetricsEndpoints:
+    - port: internal
+      path: /metrics
+      interval: 30s
+      honorLabels: true

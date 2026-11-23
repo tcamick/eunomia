@@ -1,0 +1,74 @@
+/* Role tokens (docs/web-conventions.md, Tokens and theme). These are E0's
+   plain placeholders; E1a chooses the look and records it in ADR 0007. */
+:root {
+  --bg: oklch(98.5% 0.004 90);
+  --panel: oklch(100% 0 0);
+  --fg: oklch(22% 0.01 260);
+  --muted: oklch(45% 0.01 260);
+  --line: oklch(88% 0.006 260);
+  --accent: oklch(45% 0.12 255);
+  --ok: oklch(45% 0.12 150);
+  --bad: oklch(48% 0.17 28);
+  --radius: 0.5rem;
+  --face: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --face-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: oklch(18% 0.008 260);
+    --panel: oklch(22% 0.01 260);
+    --fg: oklch(93% 0.006 260);
+    --muted: oklch(72% 0.01 260);
+    --line: oklch(34% 0.012 260);
+    --accent: oklch(75% 0.11 255);
+    --ok: oklch(78% 0.13 150);
+    --bad: oklch(74% 0.14 28);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: oklch(18% 0.008 260);
+  --panel: oklch(22% 0.01 260);
+  --fg: oklch(93% 0.006 260);
+  --muted: oklch(72% 0.01 260);
+  --line: oklch(34% 0.012 260);
+  --accent: oklch(75% 0.11 255);
+  --ok: oklch(78% 0.13 150);
+  --bad: oklch(74% 0.14 28);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--face);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -1,0 +1,67 @@
+# One CronJob per job (ADR 0003). Each pod runs `eunomia job <name>` on the
+# shared data volume, records its outcome there, and pushes its gauges to
+# beholder's Pushgateway once at exit. Schedules are UTC.
+#
+# noop exists to prove that path in E0; the roster job replaces it in E1a.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: noop
+  namespace: eunomia
+  labels:
+    app.kubernetes.io/name: eunomia-job
+    app.kubernetes.io/component: noop
+spec:
+  schedule: "17 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: eunomia-job
+            app.kubernetes.io/component: noop
+        spec:
+          restartPolicy: Never
+          serviceAccountName: eunomia-job
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: job
+              image: eunomia
+              args:
+                - job
+                - -data-dir=/data
+                - -pushgateway-url=http://pushgateway.monitoring.svc:9091
+                - noop
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: eunomia-data

@@ -16,7 +16,7 @@ Makefile, .golangci.yml, go.mod, go.sum, Dockerfile
 - Dependencies are not vendored. A new module is the owner's decision; say what it replaces and what the standard library lacks.
 - Package names are short nouns: `store`, `config`, `jobs`, `httpapi`, `roster`, `news`, `tagging`, `votes`, `bills`, `elections`, `learn`, `geo`, `fetch`, `logging`, `version`. A source's adapter is named for the source (`legislators`, `congressgov`, `fec`, `openstates`, `fedreg`, `voteview`, `clerk`, `senate`).
 - **One store, one writer package.** `internal/store` is the only package that imports the database driver and the only one that holds SQL. SQL lives beside the table it reads; parameters only, never string-built SQL. Other packages use `store`'s methods through interfaces they define.
-- **Two processes share the file.** The server and the job pods open the same SQLite file: WAL mode, a busy timeout, short transactions. The server writes only visits and marks; jobs write everything else. A test holds this line (a server handler that writes another table fails it).
+- **Two processes share the file.** The server and the job pods open the same SQLite file: WAL mode, a busy timeout, short transactions. The server writes only visits and marks; jobs write everything else. A test holds this line (a server handler that writes another table fails it). The one exception is at startup: whichever process opens the file first applies pending migrations, each in its own transaction, so a new schema never waits for the next job (ADR 0003).
 
 ## Code standards
 - **Errors:** wrap with context using `%w` (`fmt.Errorf("fetch %s: %w", source, err)`); compare with `errors.Is` and `errors.As`; sentinel errors for conditions callers branch on; never leak a dependency's error types across a package boundary.
@@ -36,7 +36,7 @@ Makefile, .golangci.yml, go.mod, go.sum, Dockerfile
 - What a job found different from the last run goes to `changes` in the same transaction as the write, so "Since you last looked" cannot disagree with the data.
 
 ## Fetching from public sources
-- All outbound HTTP goes through `internal/fetch`: a timeout on every request, a response size limit, a `User-Agent` of `eunomia/<version>` with nothing that identifies the owner, conditional requests (`ETag`, `If-Modified-Since`) where the source supports them, a pace between requests to one host, and backoff with jitter on 429 and 5xx. Redirects stay on `https`.
+- All outbound HTTP to outside services goes through `internal/fetch`. The one exception is a job's push to beholder's Pushgateway, inside the cluster over plain HTTP (`internal/jobs/push.go` says why it has no counter of its own). `fetch` gives every request a timeout, a response size limit, a `User-Agent` of `eunomia/<version>` that it builds itself (`fetch.UserAgent`) with nothing that identifies the owner, errors that never print a URL's query (where a key travels), conditional requests (`ETag`, `If-Modified-Since`) where the source supports them, a pace between requests to one host, and backoff with jitter on 429 and 5xx. Redirects stay on `https`.
 - A job asks for what changed, not for everything: since the newest stored item, or with the conditional headers. An unchanged source costs one request and writes nothing.
 - A source's base URL is a flag or a `config/sources.yaml` entry, never a constant in the middle of the code, so a test points it at `httptest.Server`.
 - API keys come from a file-path flag (`-api-data-gov-key-file`), never a flag value or the repository. They are never logged and never appear in a URL that is logged or stored; a test asserts neither `-h` nor an error prints one.
@@ -51,10 +51,10 @@ Makefile, .golangci.yml, go.mod, go.sum, Dockerfile
 - Never log an API key or a whole response body.
 
 ## Metrics
-- Prometheus client; `/metrics` on the internal port (`-internal-listen`), not the one the tailnet reaches. Names are `eunomia_<area>_<thing>_<unit>`: `eunomia_fetch_requests_total{source,result}`, `eunomia_fetch_duration_seconds{source}`, `eunomia_job_runs_total{job,result}`, `eunomia_job_last_success_timestamp_seconds{job}`, `eunomia_roster_changes_total{kind}`, `eunomia_news_stories_added_total{feed}`, `eunomia_http_requests_total{route,code}`.
+- Prometheus client; `/metrics` on the internal port (`-internal-listen`), not the one the tailnet reaches. Names are `eunomia_<area>_<thing>_<unit>`: `eunomia_fetch_requests_total{source,result}`, `eunomia_fetch_duration_seconds{source}`, `eunomia_job_last_run_ok{job}`, `eunomia_job_last_success_timestamp_seconds{job}`, `eunomia_batch_last_run_ok` (pushed, grouped by `batch`), `eunomia_roster_changes_total{kind}`, `eunomia_news_stories_added_total{feed}`, `eunomia_http_requests_total{route,code}`.
 - **Labels are bounded:** every value can be listed when the code is written (`source`, `feed`, `job`, `result`, `kind`, `route`). Never a person, a state's free text, a URL, a headline or an error message.
 - **Every outside source** gets a request counter by `source` and `result` and a duration histogram, from `internal/fetch`, so an adapter cannot forget them.
-- A job pod lives seconds. It pushes its counters to beholder's Pushgateway once at exit (`PUT`, `job="eunomia-batch"`, grouping label `batch=<job name>`; beholder ADR 0002), and records its outcome in the `jobs` table, which the server exports at scrape time.
+- A job pod lives seconds. It pushes its counters to beholder's Pushgateway once at exit (`PUT`, `job="eunomia-batch"`, grouping label `batch=<job name>`; beholder ADR 0002), and records its outcome in the `jobs` table, which the server exports at scrape time. A pushed family must not carry a `job` or `batch` label of its own (the gateway's grouping labels); `internal/jobs` leaves such a family out of the push.
 - Help text says what is counted and lists the label values. Metrics are tested as behaviour: the name, the labels, that it was emitted, and that a bounded label cannot take an unbounded value.
 
 ## Testing

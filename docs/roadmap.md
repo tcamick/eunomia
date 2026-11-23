@@ -27,7 +27,7 @@ The empty app, built, deployed and monitored the way every later phase will be.
   - The Status page opens at `https://eunomia.<tailnet>.ts.net` and shows the `noop` job's last run.
   - The `noop` CronJob has run on the cluster, written its row through the shared volume, and its pushed counters are in Prometheus.
   - The server's target is up in Prometheus.
-  - `make land` merged a branch and deployed it; `make deploy-status` shows pinned, `main` and the cluster in agreement.
+  - `make deploy` deployed `main`, and `make deploy-status` shows pinned, `main` and the cluster in agreement. *(Amended 2026-11-22: E0 is merged by hand, so `make land` is first checked by E1a.)*
   - A request from a pod outside the `tailscale` namespace to the server's port is refused.
 
 ## E1a — Roster and people (2 sessions)
@@ -37,6 +37,7 @@ The empty app, built, deployed and monitored the way every later phase will be.
   - The Congress page shows each chamber's seats by party, the majority threshold, vacancies and leadership, and the totals match a count of the source file made by hand that day.
   - Any member's page shows photo, party, state or district, term dates, committees and leadership posts, each with its source and fetch date.
   - Search finds a member by part of their name, by state and by committee.
+  - It lands with `make land`, the first branch to do so (E0 is merged by hand), and `make deploy-status` then shows pinned, `main` and the cluster in agreement.
   - The look is recorded in ADR 0007, and the party colours pass the palette checks in both themes.
   - The pages have been looked at on a phone-width and a laptop-width window, by keyboard alone, in both themes.
 
