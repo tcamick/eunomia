@@ -11,8 +11,8 @@ import (
 
 // What a delegation's Lead is when no single party has the most seats.
 const (
-	// LeadEven: two or more parties tie for the most filled seats, as in a
-	// split Senate delegation. The map draws the tied parties' colours as
+	// LeadEven: two or more parties tie for the most filled seats, unless
+	// they all share one colour code, as in a split Senate delegation. The map draws the tied parties' colours as
 	// stripes, never a blend (docs/web-conventions.md, party colour).
 	LeadEven = "even"
 	// LeadVacant: the chamber has seats here and none is filled.

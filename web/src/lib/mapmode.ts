@@ -51,7 +51,7 @@ export function delegationOf(s: StateSummary, mode: Mode): Delegation {
 export function fillFor(d: Delegation): Fill {
   if (d.lead === 'none') return { kind: 'none' };
   if (d.lead === 'vacant') return { kind: 'vacant' };
-  // The server decides a tie's two codes on seats per code (congress.States),
+  // The server decides a tie's two codes on seats per party (congress.States),
   // the same way for every party; the page only draws them.
   if (d.lead === 'even') return { kind: 'even', codes: [d.stripes?.[0] ?? '', d.stripes?.[1] ?? ''] };
   return { kind: 'party', code: d.lead };

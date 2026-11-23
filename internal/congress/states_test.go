@@ -111,12 +111,12 @@ func TestStates_TheColourModes(t *testing.T) {
 	}
 }
 
-func TestDelegation_DecidesTheLeadOnSeatsPerPartyCode(t *testing.T) {
+func TestDelegation_DecidesTheLeadOnSeatsPerParty(t *testing.T) {
 	t.Parallel()
-	// PRD §3, the same count for every party: seats are totalled by the
-	// code the map colours by before the lead is chosen, so an Independent's
-	// or a third party's seats are not split by caucus or party name while
-	// a major party's are counted whole (review, pass 2).
+	// PRD §3, the same count for every party: seats are totalled per party,
+	// whatever the caucus (an Independent's are not split by caucus while a
+	// major party's are counted whole), and never across parties that share
+	// a colour code (reviews, passes 2 and 3).
 	type g = [2]string
 	tests := map[string]struct {
 		held        map[[2]string]int
