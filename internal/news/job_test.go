@@ -152,7 +152,7 @@ func TestJob_TagsStoriesWithTheMembersAndStatesTheyName(t *testing.T) {
 	rows, err := s.Stories(ctx, store.StoryFilter{Person: "A000001"})
 	require.NoError(t, err, "listing the member's stories")
 	require.Len(t, rows, 1, "the story naming the member is on their page")
-	assert.Equal(t, []store.Mention{{Kind: "person", Ref: "A000001"}, {Kind: "state", Ref: "OH"}}, rows[0].Mentions,
+	assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "A000001", Name: "Ann Able"}, {Kind: "state", Ref: "OH"}}, rows[0].Mentions,
 		"tagged with the member and the state it names")
 	rows, err = s.Stories(ctx, store.StoryFilter{State: "WA"})
 	require.NoError(t, err, "listing Washington's stories")

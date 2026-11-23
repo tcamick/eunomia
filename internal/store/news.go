@@ -204,6 +204,14 @@ func (s *Store) ReplaceMentions(ctx context.Context, want map[int64][]Mention) (
 	return changed, nil
 }
 
+// StoryMention is a mention as the feed shows it: a person's name comes
+// with it (a state's name is the caller's, from internal/geo).
+type StoryMention struct {
+	Kind string `json:"kind"`
+	Ref  string `json:"ref"`
+	Name string `json:"name,omitempty"`
+}
+
 // StoryFilter narrows the feed. Empty fields do not filter.
 type StoryFilter struct {
 	Feed   string
@@ -217,18 +225,18 @@ type StoryFilter struct {
 
 // StoryRow is a story as the feed shows it.
 type StoryRow struct {
-	ID        int64     `json:"id"`
-	Feed      string    `json:"feed"`
-	Feeds     []string  `json:"feeds"`
-	URL       string    `json:"url,omitempty"`
-	Title     string    `json:"title"`
-	Summary   string    `json:"summary"`
-	Published string    `json:"published,omitempty"`
-	FetchedAt string    `json:"fetchedAt"`
-	Source    string    `json:"source"`
-	ReadAt    string    `json:"readAt,omitempty"`
-	SavedAt   string    `json:"savedAt,omitempty"`
-	Mentions  []Mention `json:"mentions"`
+	ID        int64          `json:"id"`
+	Feed      string         `json:"feed"`
+	Feeds     []string       `json:"feeds"`
+	URL       string         `json:"url,omitempty"`
+	Title     string         `json:"title"`
+	Summary   string         `json:"summary"`
+	Published string         `json:"published,omitempty"`
+	FetchedAt string         `json:"fetchedAt"`
+	Source    string         `json:"source"`
+	ReadAt    string         `json:"readAt,omitempty"`
+	SavedAt   string         `json:"savedAt,omitempty"`
+	Mentions  []StoryMention `json:"mentions"`
 }
 
 // Stories lists stories, newest first, with their feeds, mentions and the
@@ -242,7 +250,8 @@ func (s *Store) Stories(ctx context.Context, f StoryFilter) ([]StoryRow, error) 
 		SELECT s.id, s.feed, COALESCE(s.url, ''), s.title, s.summary, COALESCE(s.published, ''), s.fetched_at, s.source,
 		       COALESCE(k.read_at, ''), COALESCE(k.saved_at, ''),
 		       (SELECT json_group_array(feed) FROM (SELECT feed FROM story_feeds WHERE story = s.id ORDER BY feed)),
-		       (SELECT json_group_array(json_object('kind', kind, 'ref', ref))
+		       (SELECT json_group_array(json_object('kind', kind, 'ref', ref, 'name',
+		                 CASE kind WHEN 'person' THEN (SELECT display_name FROM people WHERE id = ref) END))
 		          FROM (SELECT kind, ref FROM mentions WHERE story = s.id ORDER BY kind, ref))
 		FROM stories s LEFT JOIN marks k ON k.story = s.id
 		WHERE (?1 = '' OR EXISTS (SELECT 1 FROM story_feeds sf WHERE sf.story = s.id AND sf.feed = ?1))

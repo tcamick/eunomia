@@ -310,9 +310,14 @@ func serve(ctx context.Context, cfg *config.Config, st *store.Store, registry *j
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		jobs.NewHistoryCollector(st, registry),
 	)
+	feeds, err := loadFeeds()
+	if err != nil {
+		return err
+	}
 	app, err := httpapi.New(httpapi.Options{
 		Store: st, UI: web.FS(), Version: version.Version, Now: time.Now, Log: *log, Registerer: reg,
 		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(),
+		News: st, Feeds: feeds,
 	})
 	if err != nil {
 		return fmt.Errorf("build handler: %w", err)

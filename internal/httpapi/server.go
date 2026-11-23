@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 
+	"github.com/tcamick/eunomia/internal/news"
 	"github.com/tcamick/eunomia/internal/store"
 )
 
@@ -45,6 +46,10 @@ type Options struct {
 	// Jobs are the registered job names; the status page lists only these.
 	// Nil lists every recorded job.
 	Jobs []string
+	// News serves the feed and takes the owner's marks; nil leaves their
+	// routes out. Feeds are the configured feeds, for names and labels.
+	News  NewsReader
+	Feeds []news.Feed
 }
 
 // contentSecurityPolicy keeps every fetch the page makes on this origin
@@ -119,6 +124,11 @@ func New(o Options) (http.Handler, error) {
 		mux.HandleFunc("GET /api/states", a.statesHandler)
 		mux.HandleFunc("GET /api/states/{code}", a.stateHandler)
 		mux.HandleFunc("GET /portraits/{name}", a.portraitHandler)
+	}
+	if o.News != nil {
+		n := &newsAPI{news: o.News, feeds: o.Feeds, now: o.Now}
+		mux.HandleFunc("GET /api/stories", n.storiesHandler)
+		mux.HandleFunc("PUT /api/stories/{id}/marks", n.marksHandler)
 	}
 	// Every pattern names a method, so the mux never reports a request path
 	// as the matched pattern, and the route label stays bounded.
