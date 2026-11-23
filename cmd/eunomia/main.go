@@ -24,12 +24,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 
+	curated "github.com/tcamick/eunomia/config"
 	"github.com/tcamick/eunomia/internal/config"
 	"github.com/tcamick/eunomia/internal/fetch"
 	"github.com/tcamick/eunomia/internal/httpapi"
 	"github.com/tcamick/eunomia/internal/jobs"
 	"github.com/tcamick/eunomia/internal/legislators"
 	"github.com/tcamick/eunomia/internal/logging"
+	"github.com/tcamick/eunomia/internal/news"
 	"github.com/tcamick/eunomia/internal/portraits"
 	"github.com/tcamick/eunomia/internal/roster"
 	"github.com/tcamick/eunomia/internal/store"
@@ -175,9 +177,24 @@ type deps struct {
 }
 
 // fetchSources are every source a job may fetch: the values of the fetch
-// metric's source label.
-var fetchSources = []string{
-	legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership, portraits.Source,
+// metric's source label, bounded by the code and config/sources.yaml.
+func fetchSources(feeds []news.Feed) []string {
+	out := make([]string, 0, 4+len(feeds))
+	out = append(out, legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership, portraits.Source)
+	for _, f := range feeds {
+		out = append(out, f.ID)
+	}
+	return out
+}
+
+// loadFeeds reads and validates config/sources.yaml (embedded); a bad list
+// stops the process at startup (AGENTS.md, Structure rules).
+func loadFeeds() ([]news.Feed, error) {
+	feeds, err := news.LoadFeeds(curated.FS)
+	if err != nil {
+		return nil, fmt.Errorf("config/sources.yaml: %w", err)
+	}
+	return feeds, nil
 }
 
 // fetchPace is the gap between two requests to one host. The sources are
@@ -202,9 +219,22 @@ func buildJobs(d deps) ([]jobs.Job, error) {
 	if err != nil {
 		return nil, err
 	}
+	var newsReg prometheus.Registerer
+	if d.run == news.JobName {
+		newsReg = d.reg
+	}
+	feeds, err := loadFeeds()
+	if err != nil {
+		return nil, err
+	}
+	n, err := news.NewJob(feeds, d.get, d.st, time.Now, newsReg)
+	if err != nil {
+		return nil, err
+	}
 	return []jobs.Job{
 		r,
 		portraits.NewJob(d.get, d.st, d.portraitsURL, filepath.Join(d.dataDir, portraitDir), time.Now),
+		n,
 	}, nil
 }
 
@@ -215,7 +245,12 @@ const portraitDir = "portraits"
 func runJob(ctx context.Context, cfg *config.Config, st *store.Store, name string) int {
 	log := zerolog.Ctx(ctx)
 	reg := prometheus.NewRegistry()
-	client, err := fetch.New(fetch.Options{Sources: fetchSources, Pace: fetchPace, Registerer: reg})
+	feeds, err := loadFeeds()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not load the feeds")
+		return exitFail
+	}
+	client, err := fetch.New(fetch.Options{Sources: fetchSources(feeds), Pace: fetchPace, Registerer: reg})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not build the fetch client")
 		return exitFail

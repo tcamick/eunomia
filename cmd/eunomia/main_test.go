@@ -17,6 +17,7 @@ import (
 
 	"github.com/tcamick/eunomia/internal/config"
 	"github.com/tcamick/eunomia/internal/legislators"
+	"github.com/tcamick/eunomia/internal/news"
 	"github.com/tcamick/eunomia/internal/portraits"
 	"github.com/tcamick/eunomia/internal/roster"
 	"github.com/tcamick/eunomia/internal/store"
@@ -124,14 +125,15 @@ func TestConfig_SourceDefaultsAreTheAdaptersPublishedDirectories(t *testing.T) {
 
 func TestBuildJobs_OnlyTheRunningJobRegistersItsMetrics(t *testing.T) {
 	t.Parallel()
-	// A pushed family belongs to the job that ran: the roster counter is
-	// pushed by a roster run, and by no other (go-conventions, Metrics).
+	// A pushed family belongs to the job that ran: each job's counter is
+	// pushed by its own run, and by no other (go-conventions, Metrics).
 	tests := map[string]struct {
-		run        string
-		wantRoster bool
+		run  string
+		want []string
 	}{
-		"a roster run registers the roster counter":     {run: roster.JobName, wantRoster: true},
-		"a portraits run does not register the counter": {run: "portraits", wantRoster: false},
+		"a roster run registers the roster counter": {run: roster.JobName, want: []string{"eunomia_roster_changes_total"}},
+		"a news run registers the news counter":     {run: news.JobName, want: []string{"eunomia_news_stories_added_total"}},
+		"a portraits run registers neither":         {run: "portraits", want: []string{}},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -141,11 +143,11 @@ func TestBuildJobs_OnlyTheRunningJobRegistersItsMetrics(t *testing.T) {
 			require.NoError(t, err, "building the jobs for a %s run", tc.run)
 			families, err := reg.Gather()
 			require.NoError(t, err, "gathering the registry")
-			var found bool
+			got := make([]string, 0, len(families))
 			for _, f := range families {
-				found = found || f.GetName() == "eunomia_roster_changes_total"
+				got = append(got, f.GetName())
 			}
-			assert.Equal(t, tc.wantRoster, found, "eunomia_roster_changes_total registered for a %s run", tc.run)
+			assert.Equal(t, tc.want, got, "the families registered for a %s run", tc.run)
 		})
 	}
 }
