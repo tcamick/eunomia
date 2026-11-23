@@ -137,14 +137,29 @@ func TestDiff_AMemberMissingFromTheFileKeepsTheirHistory(t *testing.T) {
 	assert.Equal(t, []string{KindLeft}, kinds(p.Changes))
 	assert.Equal(t, "S000033", p.Changes[0].Person)
 	assert.Empty(t, p.UnlistTerms, "a departed member's terms stay listed, as history")
-	require.NotEmpty(t, p.UnlistLeadership, "a departed member's open roles are dated, so no page shows them as current")
-	for _, k := range p.UnlistLeadership {
-		assert.Equal(t, "S000033", k.Person, "only the departed member's roles are dated")
+	var open, past []store.LeadershipKey
+	for k, l := range desired(t, snap).Leadership {
+		if k.Person != "S000033" {
+			continue
+		}
+		if l.End == "" {
+			open = append(open, k)
+		} else {
+			past = append(past, k)
+		}
 	}
+	require.NotEmpty(t, open, "the fixture gives S000033 an open role")
+	require.NotEmpty(t, past, "the fixture gives S000033 a past role")
+	assert.ElementsMatch(t, open, p.UnlistLeadership, "exactly the departed member's open roles are dated")
 	d, _, err := s.PersonDetail(context.Background(), "S000033")
 	require.NoError(t, err, "reading the departed member's page")
+	shown := map[store.LeadershipKey]bool{}
 	for _, r := range d.Roles {
 		assert.True(t, r.End != "" || r.UnlistedOn != "", "role %q is not shown as current", r.Title)
+		shown[store.LeadershipKey{Person: "S000033", Title: r.Title, Start: r.Start}] = true
+	}
+	for _, k := range past {
+		assert.True(t, shown[k], "the past role %q is still on the page", k.Title)
 	}
 
 	st, err := s.RosterState(context.Background())
@@ -191,16 +206,51 @@ func TestDiff_AReturningMemberIsAnArrival(t *testing.T) {
 	p := load(t, s, snap, "2026-12-01")
 	require.Equal(t, []string{KindArrived}, kinds(p.Changes), "changes after an arrival")
 	assert.Contains(t, p.Changes[0].Summary, "District of Columbia at large")
+}
 
-	d, _, err := s.PersonDetail(context.Background(), "N000147")
-	require.NoError(t, err, "reading the returning member's page")
-	var leftOn []string
-	for _, term := range d.Terms {
-		if term.LeftOn != "" {
-			leftOn = append(leftOn, term.LeftOn)
+func TestDiff_LeftOnIsKeptOnAnEarlierTermAndClearedOnTheTermBeingServed(t *testing.T) {
+	t.Parallel()
+	// left_on is ours: the day the source stopped listing a member.
+	leftOn := func(t *testing.T, s *store.Store) map[string]string {
+		t.Helper()
+		d, _, err := s.PersonDetail(context.Background(), edited)
+		require.NoError(t, err, "reading the member's page")
+		out := map[string]string{}
+		for _, term := range d.Terms {
+			out[term.Start] = term.LeftOn
 		}
+		return out
 	}
-	assert.Equal(t, []string{today}, leftOn, "the day they stopped being listed is kept when they return")
+	t.Run("returning to the same term clears it", func(t *testing.T) {
+		t.Parallel()
+		s := openStore(t)
+		snap := snapshot(t)
+		load(t, s, snap, today)
+		load(t, s, withoutMember(snap, edited), today)
+		load(t, s, snap, "2026-12-01")
+		for start, left := range leftOn(t, s) {
+			assert.Empty(t, left, "term from %s: the member serves it again", start)
+		}
+	})
+	t.Run("returning for a new term keeps it on the earlier one", func(t *testing.T) {
+		t.Parallel()
+		s := openStore(t)
+		snap := snapshot(t)
+		load(t, s, snap, today)
+		load(t, s, withoutMember(snap, edited), today)
+		var served string
+		back := edit(t, snap, func(l *legislators.Legislator) {
+			last := l.Terms[len(l.Terms)-1]
+			served = last.Start
+			next := last
+			next.Start, next.End = "2027-01-03", "2029-01-03"
+			l.Terms = append(l.Terms, next)
+		})
+		load(t, s, back, "2027-01-05")
+		got := leftOn(t, s)
+		assert.Equal(t, today, got[served], "the earlier term keeps the day the member stopped being listed")
+		assert.Empty(t, got["2027-01-03"], "the new term has none")
+	})
 }
 
 func TestDiff_APartySwitchIsOneChange(t *testing.T) {

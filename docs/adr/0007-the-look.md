@@ -22,7 +22,7 @@ Eunomia is read in short sessions to catch up on Congress, mostly on a phone or 
 
 ## Rejected
 - **The first party palette:** Independent purple (`oklch(48% .13 315)`) and Other green (`oklch(47% .09 170)`). Purple sat 12.7 from Democratic blue for normal vision (floor 15) and 5.2 under protanopia, the green read as gray (chroma 0.09, floor 0.10), and the dark set was lighter than the dark band. Replaced by amber and plum, one hue per party in both themes.
-- **Purple for Independents, as many charts use:** too close to Democratic blue for colour-blind readers at any lightness that also passes contrast.
+- **Purple for Independents, as many charts use:** the purple tried was too close to Democratic blue for colour-blind readers (5.2 under protanopia).
 - **Gray for parties other than the two largest:** gray is the vacant seat, and a party must not look like an empty chair.
 
 ## Consequences

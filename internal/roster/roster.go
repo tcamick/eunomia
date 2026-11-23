@@ -220,9 +220,12 @@ func (d *differ) terms() {
 	for _, k := range sortedTermKeys(d.want.Terms) {
 		w := d.want.Terms[k]
 		h, ok := d.have.Terms[k]
-		if ok && w.LeftOn == "" && h.LeftOn != "" {
+		if ok && !w.Current && w.LeftOn == "" && h.LeftOn != "" {
 			// The file never gives left_on; it is ours, the day a member
-			// stopped being listed. A member who returns keeps that history.
+			// stopped being listed. A member who returns for a new term keeps
+			// it on the earlier one. One who returns to the term they are
+			// serving has it cleared: they hold the seat; the left and
+			// arrived changes keep the gap on record.
 			w.LeftOn = h.LeftOn
 		}
 		if !ok || !sameTerm(h, w) {

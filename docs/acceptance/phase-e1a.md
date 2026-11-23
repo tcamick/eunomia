@@ -1,6 +1,6 @@
 # Phase E1a — Roster and people acceptance
 
-Branch: `feat/phase-e1a-roster` (cut from `feat/phase-e0-skeleton`, since E0 cannot land before its deploy; `main` is merged in once E0 lands) · Started: 2026-11-22 · Merged:
+Branch: `feat/phase-e1a-roster` (cut from `feat/phase-e0-skeleton`, since E0 cannot land before its deploy; `main` is merged in once E0 lands) · Started: 2026-11-22 · Merged: 2026-11-23
 
 Roadmap `docs/roadmap.md`, E1a; plan `docs/implementation-plan.md` §4, E1a; PRD §3, §6.3, §6.4, §7, §10.
 
@@ -32,10 +32,15 @@ Reviewer pass 1, 2026-11-23: four blocking, fifteen should-fix, eight nits.
 
 Reviewer pass 2, 2026-11-23: one blocking, six should-fix, three nits, all fixed. Blocking: a departed member's open leadership posts showed as current on their page; now dated (`unlisted_on`) at departure and shown as "no longer listed from". Should-fix: the `Diff` comment described the old deleting behaviour; a returning member's earlier `left_on` was cleared; a withdrawn portrait kept the old file and date (now removed and dated now); a job-level test that a short file leaves the stored roster untouched; one assertion compared against the wrong member; this list lacked the `make land` line; the Congress legend is now a table (the chart's table twin). Nits: today's date from `lib/format.ts`; ADR 0007 has a Rejected section; the person page's own portrait loads eagerly.
 
+Reviewer pass 3, 2026-11-23: one blocking, no should-fix, three nits, all fixed. Blocking: the pass-2 fix carried `left_on` onto a term the member was serving again, which would later show a false gap in service; now kept only on an earlier term, with a two-case test checked to fail without the fix. Nits: a withdrawn portrait's row is written before its file is removed; the departure test asserts exactly the open roles are dated and the past role stays on the page; ADR 0007 claims only the purple tried.
+
+**Owner's agreement, 2026-11-23:** E1a lands with the keyboard-alone check still open; the owner checks it on the live site, and anything found is fixed forward.
+
 ## Manual verifications
 - Headless Chrome screenshots of `make run` on the live roster: Congress at 1280 px light and dark; Person at 1280 and 390 px; Committee and Committees at 1280 px; Search at 390 px; Members `?state=OH` at 800 px; Not found · Claude · 2026-11-23 · Chrome headless on neptune
 - Every page (Congress, Members, Person, Committees, Committee, Search, Status) at 360 px light, at 640 CSS px with scale factor 2 (200% zoom on a 1280 px window), and at 1280 px dark, on the live roster: nothing clipped or overlapping after one fix (below) · Claude · 2026-11-23 · Chrome headless on neptune
 - Reduced motion: the only motion is the seat chart's 120 ms hover fade, declared inside `prefers-reduced-motion: no-preference`; without it the dimmed end state still applies · Claude · 2026-11-23 · code reading
+- The Congress legend, now a table, looked at again at 1280 px: aligned, counts match the chart · Claude · 2026-11-23 · Chrome headless on neptune
 - Found at 200% zoom and fixed: the Members filters' State select ran past the page edge and the Name box touched Chamber (a control's built-in minimum width); controls now shrink to their column · Claude · 2026-11-23
 - Found by looking and fixed: the Congress page crashed on the Senate's missing `delegates` list; a missing space before "(senior senator)" · Claude · 2026-11-23
 - Keyboard alone (Tab order, skip link, focus ring on every link and control, the heading focused after navigation): not yet · owner · — · —

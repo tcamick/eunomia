@@ -150,13 +150,19 @@ func (j *Job) one(ctx context.Context, ps store.PortraitState, name string) (res
 		// The source has no portrait for this member; shown as initials. If
 		// it had one before, that is a change: the date is now, and the old
 		// file goes, so the page never shows a photo the source withdrew.
-		if ps.File != "" {
-			rec.FetchedAt = rec.CheckedAt
-			if err := os.Remove(filepath.Join(j.dir, name)); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return 0, fmt.Errorf("remove withdrawn portrait %s: %w", ps.Person, err)
-			}
+		// The store is written first: the page reads it, so an orphaned file
+		// is harmless, while a missing file the store still names is not.
+		if ps.File == "" {
+			return resMissing, j.st.RecordPortrait(ctx, rec)
 		}
-		return resMissing, j.st.RecordPortrait(ctx, rec)
+		rec.FetchedAt = rec.CheckedAt
+		if err := j.st.RecordPortrait(ctx, rec); err != nil {
+			return 0, err
+		}
+		if err := os.Remove(filepath.Join(j.dir, name)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return 0, fmt.Errorf("remove withdrawn portrait %s: %w", ps.Person, err)
+		}
+		return resMissing, nil
 	case err != nil:
 		return 0, err
 	case resp.NotModified:
