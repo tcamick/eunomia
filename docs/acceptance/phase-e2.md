@@ -52,6 +52,13 @@ All fixed:
 4. The looked-at checks are completed below, keyboard included.
 Nits: the plan's marks route and the news schedule (plan and PRD: every 30 minutes, dated) are amended; go-conventions' hermetic-test rule now allows reading the repository's own files, read only.
 
+## Review findings (third pass, 2026-11-23)
+All fixed:
+1. *Blocking:* "Rep. Grant Smith" tagged a member surnamed Grant. Confirmed with failing tests first ("Rep. Johnson Smith", "Sen. Sanders Ford"); a title and surname now count only when no capitalised name word follows, looked for in the text with members' names blanked out. "Rep. Johnson, R-La." and "Sen. Sanders (I-Vt.)" still tag. ADR 0008 amended.
+2. A former member's name ("Virginia Foxx" after the member leaves) would have tagged the state. Former members' names are blanked out and tag no one: `TestTag_AFormerMembersNameTagsNoOne`, `TestJob_ADepartedMembersNameDoesNotBecomeAState`.
+3. The Democracy Now fixture's three article bodies are replaced by a one-line placeholder; the README says so.
+Nits: the backup's stale-lock comment names the half-hour deadline. On the last line's "missing disk": with seabass unplugged the pod cannot start, so the status page shows the backup *Never ran / Overdue* (26 hours after its last success); with the disk present but the marker gone, *Failed*. Both are a failed backup on the status page; the live check records which it saw.
+
 ## Review findings not fixed, and why
 -
 
