@@ -8,6 +8,9 @@
   import { Load } from '../lib/load.svelte';
   import { partyLabel } from '../lib/party';
   import { seatName } from '../lib/format';
+  import type { PageProps } from '../lib/page';
+
+  let {}: Partial<PageProps> = $props();
 
   document.title = 'Congress · Eunomia';
   const congress = new Load<CongressResponse>();

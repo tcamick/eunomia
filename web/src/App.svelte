@@ -1,178 +1,136 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { getJSON, type Status } from './lib/api';
-  import { duration, localDateTime, relativeTime } from './lib/format';
+  import Committee from './pages/Committee.svelte';
+  import Committees from './pages/Committees.svelte';
+  import Congress from './pages/Congress.svelte';
+  import Members from './pages/Members.svelte';
+  import NotFound from './pages/NotFound.svelte';
+  import Person from './pages/Person.svelte';
+  import Search from './pages/Search.svelte';
+  import Status from './pages/Status.svelte';
+  import { router } from './lib/router.svelte';
+  import type { Route } from './lib/route';
 
-  // E0 has one page, Status. E1a adds the shell, navigation and routes.
-  let status = $state<Status | null>(null);
-  let error = $state('');
+  // The shell: a top bar with the sections, the current page, and a footer.
+  // Each page is keyed by its path, so moving between two people remounts
+  // the page and starts its request afresh.
+  const pages = {
+    congress: Congress,
+    members: Members,
+    person: Person,
+    committees: Committees,
+    committee: Committee,
+    search: Search,
+    status: Status,
+    notfound: NotFound,
+  } satisfies Record<Route['name'], unknown>;
 
-  onMount(() => {
-    document.title = 'Status · Eunomia';
-    const ctrl = new AbortController();
-    getJSON<Status>('/api/status', ctrl.signal)
-      .then((s) => (status = s))
-      .catch((e: unknown) => {
-        if (!ctrl.signal.aborted) error = e instanceof Error ? e.message : String(e);
-      });
-    return () => ctrl.abort();
-  });
+  const sections: { href: string; label: string; names: Route['name'][] }[] = [
+    { href: '/', label: 'Congress', names: ['congress'] },
+    { href: '/members', label: 'Members', names: ['members', 'person'] },
+    { href: '/committees', label: 'Committees', names: ['committees', 'committee'] },
+    { href: '/search', label: 'Search', names: ['search'] },
+  ];
+
+  const route = $derived(router.route);
+  const Page = $derived(pages[route.name]);
+  const key = $derived(`${route.name}/${route.params['id'] ?? ''}`);
 </script>
 
+<a class="skip" href="#main">Skip to the page</a>
+
 <header class="top">
-  <p class="brand">Eunomia</p>
+  <a class="brand" href="/">Eunomia</a>
+  <nav aria-label="Sections">
+    <ul>
+      {#each sections as s (s.href)}
+        <li>
+          <a href={s.href} aria-current={s.names.includes(route.name) ? 'page' : undefined}>{s.label}</a>
+        </li>
+      {/each}
+    </ul>
+  </nav>
 </header>
 
-<main aria-busy={status === null && error === ''}>
-  <h1>Status</h1>
-
-  {#if error}
-    <p role="alert">Could not load the status: {error}</p>
-  {:else if status}
-    <p class="meta">Version <code>{status.version}</code></p>
-    {#if status.jobsError}
-      <p role="alert">{status.jobsError}</p>
-    {/if}
-    {#if status.jobs.length === 0 && !status.jobsError}
-      <p>No job has run yet.</p>
-    {:else if status.jobs.length > 0}
-      <div class="table-wrap">
-        <table>
-          <caption class="visually-hidden">Each job's last run</caption>
-          <thead>
-            <tr>
-              <th scope="col">Job</th>
-              <th scope="col">Last run</th>
-              <th scope="col">Result</th>
-              <th scope="col">Took</th>
-              <th scope="col">Last success</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each status.jobs as job (job.name)}
-              {@const now = new Date(status.now)}
-              <tr>
-                <th scope="row"><code>{job.name}</code></th>
-                <td data-label="Last run"><time datetime={job.lastRun}>{relativeTime(job.lastRun, now)}</time></td>
-                <td data-label="Result">
-                  {#if job.ok}
-                    <span class="ok">✓ Succeeded</span>
-                  {:else}
-                    <span class="bad">✗ Failed</span>
-                    {#if job.message}<span class="message">{job.message}</span>{/if}
-                  {/if}
-                </td>
-                <td data-label="Took">{duration(job.durationMs)}</td>
-                <td data-label="Last success">
-                  {#if job.lastOk}
-                    <time datetime={job.lastOk}>{localDateTime(job.lastOk)}</time>
-                  {:else}
-                    never
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  {:else}
-    <p>Loading the status…</p>
-  {/if}
+<main id="main">
+  {#key key}
+    <Page params={route.params} query={route.query} />
+  {/key}
 </main>
 
+<footer class="bottom">
+  <a href="/status" aria-current={route.name === 'status' ? 'page' : undefined}>Status</a>
+</footer>
+
 <style>
-  .top {
-    padding-block: 0.75rem;
-    padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
-    border-block-end: 1px solid var(--line);
-  }
-  .brand {
-    margin: 0;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-  main {
-    max-inline-size: 60rem;
-    margin-inline: auto;
-    padding: 1rem;
-  }
-  .meta {
-    color: var(--muted);
-  }
-  code {
-    font-family: var(--face-mono);
-  }
-  .table-wrap {
-    container-type: inline-size;
-    overflow-x: auto;
+  .skip {
+    position: absolute;
+    inset-inline-start: 1rem;
+    inset-block-start: -10rem;
+    padding: 0.5rem 0.75rem;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: var(--radius);
+    border-radius: var(--radius-s);
+    z-index: 1;
   }
-  table {
-    inline-size: 100%;
-    border-collapse: collapse;
+  .skip:focus-visible {
+    inset-block-start: 0.5rem;
   }
-  th,
-  td {
-    text-align: start;
-    padding: 0.5rem 0.75rem;
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 2rem;
+    padding-block: 0.5rem;
+    padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
     border-block-end: 1px solid var(--line);
-    vertical-align: top;
+    background: var(--panel);
   }
-  thead th {
-    color: var(--muted);
-    font-weight: 600;
+  .brand {
+    color: var(--fg);
+    font-weight: 820;
+    letter-spacing: 0.01em;
+    text-decoration: none;
   }
-  tbody tr:last-child > * {
-    border-block-end: none;
+  nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
-  .ok {
-    color: var(--ok);
+  nav a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2.25rem;
+    padding-inline: 0.625rem;
+    color: var(--fg);
+    text-decoration: none;
+    border-block-end: 2px solid transparent;
   }
-  .bad {
-    color: var(--bad);
+  nav a:hover {
+    border-block-end-color: var(--line);
   }
-  /* A failure message can hold a URL or a long token with no spaces;
-     "anywhere" lets it break, and lowers the cell's minimum width, so the
-     table never grows past its container. */
-  .message {
-    display: block;
+  nav a[aria-current='page'] {
+    font-weight: 700;
+    border-block-end-color: var(--accent);
+  }
+  @media (pointer: coarse) {
+    nav a {
+      min-block-size: 2.75rem;
+    }
+  }
+  main {
+    max-inline-size: 72rem;
+    margin-inline: auto;
+    padding-block: 2rem 1rem;
+    padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  }
+  .bottom {
+    max-inline-size: 72rem;
+    margin-inline: auto;
+    padding: 2rem 1rem max(2rem, env(safe-area-inset-bottom));
     color: var(--muted);
     font-size: 0.875rem;
-    overflow-wrap: anywhere;
-  }
-  /* On a narrow screen each job is a block of label and value pairs; the
-     header row stays for screen readers. */
-  @container (max-width: 34rem) {
-    thead {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-    }
-    tbody tr {
-      display: block;
-      padding-block: 0.5rem;
-      border-block-end: 1px solid var(--line);
-    }
-    tbody tr:last-child {
-      border-block-end: none;
-    }
-    th,
-    td {
-      display: flex;
-      flex-wrap: wrap;
-      column-gap: 1rem;
-      border: none;
-      padding-block: 0.125rem;
-    }
-    td::before {
-      content: attr(data-label);
-      flex: 0 0 7.5rem;
-      color: var(--muted);
-    }
   }
 </style>

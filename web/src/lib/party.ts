@@ -64,3 +64,9 @@ export function members(party: string): string {
   if (party === 'Republican') return 'Republicans';
   return `${party} members`;
 }
+
+/** partyCode maps a party's name to its code, as the server's congress.PartyCode does. */
+export function partyCode(party: string | undefined): PartyCode {
+  if (!party) return '';
+  return ({ Democratic: 'D', Republican: 'R', Independent: 'I' } as Record<string, PartyCode>)[party] ?? 'O';
+}

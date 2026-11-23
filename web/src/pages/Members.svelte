@@ -1,19 +1,24 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import PartyMark from '../components/PartyMark.svelte';
   import Portrait from '../components/Portrait.svelte';
   import Sources from '../components/Sources.svelte';
   import type { MembersResponse } from '../lib/api';
   import { calendarDate, seatName } from '../lib/format';
   import { Load } from '../lib/load.svelte';
+  import type { PageProps } from '../lib/page';
+
+  let { query }: Partial<PageProps> = $props();
 
   document.title = 'Members · Eunomia';
   const load = new Load<MembersResponse>();
   load.get('/api/members');
   onDestroy(() => load.stop());
 
-  let chamber = $state('');
-  let state = $state('');
+  // A link such as /members?state=CA (from search) opens with that filter set.
+  const seed = untrack(() => ({ chamber: query?.get('chamber') ?? '', state: query?.get('state')?.toUpperCase() ?? '' }));
+  let chamber = $state(['senate', 'house'].includes(seed.chamber) ? seed.chamber : '');
+  let stateCode = $state(seed.state);
   let party = $state('');
   let name = $state('');
 
@@ -21,7 +26,7 @@
   const shown = $derived(
     (load.data?.members ?? [])
       .filter((m) => !chamber || m.body === chamber)
-      .filter((m) => !state || m.state === state)
+      .filter((m) => !stateCode || m.state === stateCode)
       .filter((m) => !party || (m.party ?? '') === party)
       .filter((m) => !name || m.name.toLowerCase().includes(name.trim().toLowerCase()))
       .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.name.localeCompare(b.name)),
@@ -50,7 +55,7 @@
     </label>
     <label>
       <span>State</span>
-      <select bind:value={state}>
+      <select bind:value={stateCode}>
         <option value="">All</option>
         {#each load.data.states as s (s.code)}
           <option value={s.code}>{s.name}</option>
