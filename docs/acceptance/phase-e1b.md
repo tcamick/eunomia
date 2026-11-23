@@ -5,22 +5,29 @@ Branch: `feat/phase-e1b-map` · Started: 2026-11-23 · Merged:
 Roadmap `docs/roadmap.md`, E1b; plan `docs/implementation-plan.md` §4, E1b; PRD §3, §6.2, §7, §9.
 
 ## Done-when checklist
-- [ ] Clicking any state, or choosing it from the list, opens its page with both senators and every House member, with photos and parties — evidence:
-- [ ] Each colour mode's map agrees with the list beside it for every state — evidence:
-- [ ] Every state can be reached and opened with the keyboard alone, and by touch at 360 px through the list — evidence:
-- [ ] A state's district map loads only on that state's page (the bundle check shows it), and is labelled with its Congress — evidence:
-- [ ] A vacant seat is shown as vacant — evidence:
+- [x] Clicking any state, or choosing it from the list, opens its page with both senators and every House member, with photos and parties — evidence: 2026-11-23, against the live roster (`make run` on E1a's data): for all 56 jurisdictions, `/api/states/<code>` lists every filled seat and names every empty one as vacant (members + vacancies = seats in each chamber), 539 members in all, each with a party code, 524 with a mirrored photo (the other 15 show initials; the source has none for them). Every state on the map and every row of the list is a link to `/states/<code>`. Screenshots of Florida and California at 1280 px; Wyoming and DC at 360 px. `TestState_APageHasItsMembersVacanciesAndSources`, `TestState_DCHasItsDelegateAndNoDistrictMap`.
+- [x] Each colour mode's map agrees with the list beside it for every state — evidence: `make map-check` on the rendered page, both modes: for all 56, the map link's accessible name equals the list row's words ("map names that differ from the list: none"). Both read one set of functions (`lib/mapmode.ts`), tested in `mapmode.test.ts` for a split delegation, an all-one-party one, a vacancy, both seats vacant, an at-large state, no seats and an unknown party; the leads in `TestStates_TheColourModes`.
+- [ ] Every state can be reached and opened with the keyboard alone, and by touch at 360 px through the list — evidence: `make map-check`: 56 tab stops on the map, one per jurisdiction, in alphabetical order (a call-out box is the stop for a small state; its tiny shape is `tabindex="-1"`); every stop and every list row is an `<a href>`, so Enter and a tap open it. The list at 360 px fits without clipping after a fix (below). **By hand, keyboard alone: not yet** (owner).
+- [x] A state's district map loads only on that state's page (the bundle check shows it), and is labelled with its Congress — evidence: `make bundle-check` on a fresh build: 50 of 50 district modules in a chunk of their own (1–61 KB), none of their shapes in the entry bundle, the state map in it. The figure's caption reads "Districts of the 119th Congress" (from the API's `districtMap`, `geo.DistrictShapesCongress`), as the roadmap's gate G2 asks; `TestShapes_EveryApportionedDistrictHasAShapeAndTheReverse` holds the shapes to the 119th.
+- [x] A vacant seat is shown as vacant — evidence: Florida's 20th district on 2026-11-23: hatched on the district map with the hollow vacant ring, "Vacant" in its place in the list, "Vacant 1" in the totals, and "20 R · 7 D · 1 vacant" on the map and in its list. A vacancy names its last holder only when the roster saw them leave mid-term (`TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder`); FL-20 was empty before the first run, so none is named.
 
 ## Sources (checked 2026-11-23)
-- **District shapes:** the Census Bureau's cartographic boundary file `cb_2024_us_cd119_500k.zip` (`https://www2.census.gov/geo/tiger/GENZ2024/shp/`), 7,045,981 bytes, SHA-256 `2b4238ae…b031a` (pinned in the Makefile). 441 districts: 435 seats, the six at-large states coded `00`, DC and five territories coded `98`. Terms, from its metadata: "free to use in a product or publication, however acknowledgement must be given to the U.S. Census Bureau as the source"; display at 1:500,000 or smaller; no access constraints. Fetched once by `make geo`, not at run time.
+- **District shapes:** the Census Bureau's cartographic boundary file `cb_2024_us_cd119_500k.zip` (`https://www2.census.gov/geo/tiger/GENZ2024/shp/`), 7,045,981 bytes, SHA-256 `2b4238ae…b031a` (pinned in the Makefile). 441 districts: 435 seats, the six at-large states coded `00`, DC and five territories coded `98`. Terms, from its metadata: "free to use in a product or publication, however acknowledgement must be given to the U.S. Census Bureau as the source"; display at 1:500,000 or smaller; no access constraints. Fetched once by `make geo`, not at run time. Each state page with a district map credits it in its sources.
 - **State shapes:** `us-atlas` 3.0.1 (npm, ISC licence), `states-albers-10m.json`, derived from Census boundaries; pinned by the lockfile and named, with its SHA-256, in the generated files' headers.
 - **Build-time packages:** the owner's go-ahead, 2026-11-23, for `us-atlas`, `shapefile`, `d3-geo`, `topojson-server`, `topojson-simplify`, `topojson-client`, pinned exactly in `scripts/geo/`.
 
 ## Open questions found during the phase
 - PRD §6.2 asks for a vacant seat's "reason and the date of any special election". The roster source does not give either for a vacancy. Until a source that does is added, the page shows the seat as vacant, and, where the stored roster has it, who last held it and when the source stopped listing them.
+- The plan's colour modes include the governor's party (E3b) and the next election (E6a); E1b has the Senate and House delegations only, as planned.
+- Dense urban districts (Los Angeles, New York City) are too small to tell apart on a state's map at page size; the list beside the map is the way to them (ADR 0006). District numbers are drawn only on states with 20 districts or fewer.
+- On a phone the national map's labels are too small to read; the list below it is the control there, as web-conventions intends.
 
 ## Review findings not fixed, and why
 -
 
 ## Manual verifications
-- <what> · <who> · <date> · <device/environment>
+- The map (both modes) and state pages (California, Florida, Rhode Island, Wyoming, DC) at 1280 px light and dark, at 360 px, and the map at 640 CSS px with scale factor 2 (200% zoom), on the live roster: shapes, stripes for ties, call-outs, territory boxes, labels and the list all legible; nothing clipped after two fixes (below) · Claude · 2026-11-23 · Chrome headless on neptune
+- Found by looking and fixed: the list's cells did not wrap at 360 px and cut off the House column; "1 R(non-voting)" lacked its space; a list cell's swatch wrapped away from its label; the caption lower-cased "Senate" · Claude · 2026-11-23
+- Found by its test and fixed: the legend listed every party with seats rather than only the fills the map shows · Claude · 2026-11-23
+- Reduced motion: the map and district maps have no motion · Claude · 2026-11-23 · code reading
+- Keyboard alone: not yet · owner · — · —
