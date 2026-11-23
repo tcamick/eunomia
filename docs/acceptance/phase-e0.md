@@ -1,6 +1,6 @@
 # Phase E0 — Skeleton and deploy acceptance
 
-Branch: `feat/phase-e0-skeleton` · Started: 2026-11-22 · Merged:
+Branch: `feat/phase-e0-skeleton` · Started: 2026-11-22 · Merged: 2026-11-22
 
 Roadmap `docs/roadmap.md`, E0; plan `docs/implementation-plan.md` §4, E0; PRD §8, §9.
 
@@ -13,11 +13,14 @@ Roadmap `docs/roadmap.md`, E0; plan `docs/implementation-plan.md` §4, E0; PRD �
 - [ ] A request from a pod outside the `tailscale` namespace to the server's port is refused — evidence: (cluster, after the deploy).
 
 ## Open questions found during the phase
+- Outside this repository, the plan's E0 step "in Plutus, with the owner's go-ahead: the Flux objects and the `claude-ops` grant" is on Plutus branch `chore/eunomia-flux` (go-ahead given 2026-11-22); every cluster line above waits on it landing.
+- The fifth done-when line was rewritten by the author (moving the `make land` check to E1a). The owner agreed, 2026-11-22.
 - Both processes apply migrations when they open the file, so the server writes `schema_migrations` and creates tables at startup. Decided as an exception and recorded in ADR 0003 and go-conventions, Layout (review finding 5).
 
 ## Review findings not fixed, and why
 Reviewer pass 1, 2026-11-22: no blocking findings; seven should-fix, all fixed (the fetch client's error text, User-Agent and cancellation test; the Pushgateway exemption and migrations written into the conventions; the UI checks below; failure messages on bare `require` calls). Nits fixed: a `rate_limited` result for 429; cutting a stored message on a character boundary; the listen-port clash check for `:8080` against `0.0.0.0:8080`; the "Refused an unknown job" log message; internet egress limited to the job pods; `temp_store=MEMORY` for pods with no `/tmp`.
 - **Not fixed: CSP `style-src 'unsafe-inline'` also allows `<style>` elements, where `style-src-attr` would allow only attributes.** Whether `style-src-attr` is Baseline in every target browser was not verified here; the change waits until it is checked, since a wrong CSP breaks every page.
+Reviewer pass 2, 2026-11-22: no blocking findings; three should-fix, all fixed: tests that read back every connection pragma, that a second `BEGIN` waits under `_txlock=immediate` (checked to fail without it), and that two handles migrating at once apply each file once; messages on the remaining bare `require` calls; the 200% zoom check looked at (it found a long failure message overflowing the table at 640 px, fixed with `overflow-wrap: anywhere`). Nits fixed: the check stage runs `make lint test`, so `go fmt` cannot hide unformatted code from the linter; `.dockerignore` excludes `.env*`; ADR 0005 names every write the server makes.
 - **Carried to E1a:** when `noop` is removed, its row stays in `jobs`; E1a shows only registered jobs on the status page.
 - The go-conventions edit replacing `eunomia_job_runs_total` with the job-history gauges landed in commit 41b11b1 without saying why: a job pod runs one job and exits, so counters by job would be pushed with a `job` label the Pushgateway refuses; the outcomes come from the job history at scrape time instead.
 
@@ -26,4 +29,5 @@ Reviewer pass 1, 2026-11-22: no blocking findings; seven should-fix, all fixed (
 - Status page at 360 px with a device scale factor of 2, nothing clipped · Claude · 2026-11-22 · Chrome headless (a scale factor, not browser zoom; 200% zoom on a 1280 px window is 640 CSS px, wider than the 360 px checked)
 - Keyboard: the page has no interactive elements yet; focus styles are defined for E1a's links · Claude · 2026-11-22
 - Reduced motion: the page has no motion · Claude · 2026-11-22
+- Status page at 640 CSS px with a device scale factor of 2 (200% zoom on a 1280 px window), with a failed job whose message holds a URL and a 150-character token with no spaces: the full table fits, the message wraps inside its cell, nothing clipped; 360 px rechecked the same way · Claude · 2026-11-22 · Chrome headless on neptune
 - The owner's phone: not yet · owner · — · —

@@ -58,12 +58,12 @@ func TestStatus_ListsJobs(t *testing.T) {
 		{Name: "noop", LastRun: t0, LastOK: t0, OK: true, LastDuration: 1200 * time.Millisecond},
 	}})
 	resp := get(t, h, "/api/status")
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "GET /api/status")
 	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	var st Status
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&st), "calling json.NewDecoder")
 	assert.Equal(t, "v-test", st.Version)
-	require.Len(t, st.Jobs, 1)
+	require.Len(t, st.Jobs, 1, "the one job the store reported")
 	assert.Equal(t, JobStatus{Name: "noop", LastRun: t0, LastOK: t0, OK: true, DurationMs: 1200}, st.Jobs[0])
 	assert.Empty(t, st.JobsError)
 }
@@ -72,7 +72,7 @@ func TestStatus_AnUnreadableHistoryIsSaidNotHidden(t *testing.T) {
 	t.Parallel()
 	h, _ := newHandler(t, fakeStatus{err: errors.New("database is locked")})
 	resp := get(t, h, "/api/status")
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "GET /api/status when the history cannot be read")
 	var st Status
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&st), "calling json.NewDecoder")
 	assert.Empty(t, st.Jobs)

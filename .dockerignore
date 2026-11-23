@@ -6,3 +6,5 @@ cover.out
 web/node_modules/
 web/dist/
 scripts/geo/node_modules/
+.env
+.env.*

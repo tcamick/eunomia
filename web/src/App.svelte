@@ -134,10 +134,14 @@
   .bad {
     color: var(--bad);
   }
+  /* A failure message can hold a URL or a long token with no spaces;
+     "anywhere" lets it break, and lowers the cell's minimum width, so the
+     table never grows past its container. */
   .message {
     display: block;
     color: var(--muted);
     font-size: 0.875rem;
+    overflow-wrap: anywhere;
   }
   /* On a narrow screen each job is a block of label and value pairs; the
      header row stays for screen readers. */
