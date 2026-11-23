@@ -1,0 +1,286 @@
+{
+ "HSBU": [
+  {
+   "name": "Jodey C. Arrington",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chair",
+   "bioguide": "A000375"
+  },
+  {
+   "name": "Brendan F. Boyle",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "B001296"
+  },
+  {
+   "name": "Becca Balint",
+   "party": "minority",
+   "rank": 10,
+   "bioguide": "B001318"
+  }
+ ],
+ "HSED": [
+  {
+   "name": "Tim Walberg",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chair",
+   "bioguide": "W000798"
+  },
+  {
+   "name": "Robert C. \"Bobby\" Scott",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "S000185"
+  },
+  {
+   "name": "Kevin Kiley",
+   "party": "majority",
+   "rank": 13,
+   "bioguide": "K000401"
+  }
+ ],
+ "HSED14": [
+  {
+   "name": "Kevin Kiley",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "K000401"
+  },
+  {
+   "name": "Suzanne Bonamici",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "B001278"
+  }
+ ],
+ "HSED02": [
+  {
+   "name": "Rick W. Allen",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "A000372"
+  },
+  {
+   "name": "Mark DeSaulnier",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "D000623"
+  }
+ ],
+ "HSGO": [
+  {
+   "name": "James Comer",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chair",
+   "bioguide": "C001108"
+  },
+  {
+   "name": "Robert Garcia",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "G000598"
+  },
+  {
+   "name": "Eleanor Holmes Norton",
+   "party": "minority",
+   "rank": 2,
+   "bioguide": "N000147"
+  },
+  {
+   "name": "Lateefah Simon",
+   "party": "minority",
+   "rank": 16,
+   "bioguide": "S001231"
+  }
+ ],
+ "HSGO24": [
+  {
+   "name": "Pete Sessions",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "S000250"
+  },
+  {
+   "name": "Kweisi Mfume",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "M000687"
+  },
+  {
+   "name": "Eleanor Holmes Norton",
+   "party": "minority",
+   "rank": 2,
+   "bioguide": "N000147"
+  }
+ ],
+ "HSGO06": [
+  {
+   "name": "William R. Timmons IV",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "T000480"
+  },
+  {
+   "name": "Suhas Subramanyam",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "S001230"
+  },
+  {
+   "name": "Lateefah Simon",
+   "party": "minority",
+   "rank": 5,
+   "bioguide": "S001231"
+  }
+ ],
+ "HSHM": [
+  {
+   "name": "Andrew R. Garbarino",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chair",
+   "bioguide": "G000597"
+  },
+  {
+   "name": "Bennie G. Thompson",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "T000193"
+  },
+  {
+   "name": "Pablo José Hernández",
+   "party": "minority",
+   "rank": 10,
+   "bioguide": "H001103"
+  }
+ ],
+ "HSHM11": [
+  {
+   "name": "Michael Guest",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "G000591"
+  },
+  {
+   "name": "J. Luis Correa",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "C001110"
+  }
+ ],
+ "HSHM12": [
+  {
+   "name": "Dale W. Strong",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "S001220"
+  },
+  {
+   "name": "Timothy M. Kennedy",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "K000402"
+  },
+  {
+   "name": "Pablo José Hernández",
+   "party": "minority",
+   "rank": 3,
+   "bioguide": "H001103"
+  }
+ ],
+ "HSII": [
+  {
+   "name": "Bruce Westerman",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chair",
+   "bioguide": "W000821"
+  },
+  {
+   "name": "Jared Huffman",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "H001068"
+  },
+  {
+   "name": "Pablo José Hernández",
+   "party": "minority",
+   "rank": 10,
+   "bioguide": "H001103"
+  }
+ ],
+ "HSII06": [
+  {
+   "name": "Pete Stauber",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chair",
+   "bioguide": "S001212"
+  },
+  {
+   "name": "Yassamin Ansari",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "A000381"
+  }
+ ],
+ "HSII10": [
+  {
+   "name": "Thomas P. Tiffany",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chair",
+   "bioguide": "T000165"
+  },
+  {
+   "name": "Joe Neguse",
+   "party": "minority",
+   "rank": 1,
+   "title": "Ranking Member",
+   "bioguide": "N000191"
+  }
+ ],
+ "SCNC": [
+  {
+   "name": "John Cornyn",
+   "party": "majority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "C001056"
+  },
+  {
+   "name": "Chuck Grassley",
+   "party": "majority",
+   "rank": 2,
+   "bioguide": "G000386"
+  },
+  {
+   "name": "Sheldon Whitehouse",
+   "party": "minority",
+   "rank": 1,
+   "title": "Chairman",
+   "bioguide": "W000802"
+  }
+ ]
+}

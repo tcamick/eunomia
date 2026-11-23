@@ -1,0 +1,137 @@
+[
+ {
+  "type": "house",
+  "name": "House Committee on the Budget",
+  "url": "https://budget.house.gov/",
+  "minority_url": "https://democrats-budget.house.gov/",
+  "thomas_id": "HSBU",
+  "house_committee_id": "BU",
+  "address": "204 CHOB; Washington, DC 20515-6065",
+  "phone": "(202) 226-7270",
+  "rss_url": "https://budget.house.gov/news/rss.aspx",
+  "minority_rss_url": "https://democrats-budget.house.gov/rss.xml",
+  "jurisdiction": "The House Committee on the Budget is responsible for drafting a concurrent resolution on the budget for congressional action on spending, revenue, and debt-limit legislation. The Budget Resolution must be jointly agreed to by both the House and the Senate, but does not need to be signed by the President. The Committee is also responsible for enforcing the Budget Resolution by informing representatives of violations to the budget, and by working with other committees, such as the Committee on Appropriations, to prevent potential violations.",
+  "jurisdiction_source": "https://budget.house.gov/about/",
+  "youtube_id": "UCwzia2rpHJkowAXK-IF9E0w",
+  "subcommittees": []
+ },
+ {
+  "type": "house",
+  "name": "House Committee on Education and Workforce",
+  "url": "https://edlabor.house.gov/",
+  "minority_url": "https://republicans-edlabor.house.gov/",
+  "thomas_id": "HSED",
+  "house_committee_id": "ED",
+  "subcommittees": [
+   {
+    "name": "Early Childhood, Elementary, and Secondary Education",
+    "thomas_id": "14",
+    "address": "2176 RHOB; Washington, DC 20515",
+    "phone": "(202) 225-4527"
+   },
+   {
+    "name": "Health, Employment, Labor, and Pensions",
+    "thomas_id": "02",
+    "address": "2176 RHOB; Washington, DC 20515",
+    "phone": "(202) 225-4527"
+   }
+  ],
+  "address": "2176 RHOB; Washington, DC 20515-6100",
+  "phone": "(202) 225-4527",
+  "jurisdiction": "The committee has legislative jurisdiction over matters related to higher and lower education, workforce development and protections, and health, employment, labor, and pensions.",
+  "jurisdiction_source": "https://edworkforce.house.gov/committee/subcommitteesjurisdictions.htm",
+  "youtube_id": "UCqAHNOSUqn0OByR-4vF81FQ"
+ },
+ {
+  "type": "house",
+  "name": "House Committee on Oversight and Government Reform",
+  "url": "https://oversight.house.gov/",
+  "minority_url": "https://republicans-oversight.house.gov/",
+  "thomas_id": "HSGO",
+  "house_committee_id": "GO",
+  "subcommittees": [
+   {
+    "name": "Government Operations",
+    "thomas_id": "24",
+    "address": "2157 RHOB; Washington, DC 20515",
+    "phone": "(202) 225-5074"
+   },
+   {
+    "name": "Military and Foreign Affairs",
+    "thomas_id": "06",
+    "address": "2157 RHOB; Washington, DC 20515",
+    "phone": "(202) 225-5074"
+   }
+  ],
+  "address": "2157 RHOB; Washington, DC 20515-6143",
+  "phone": "(202) 225-5074",
+  "jurisdiction": "The committee oversees the federal government and all of its agencies to ensure efficiency, effectiveness, and accountability. The Committee oversees government operations, health care, information technology, interior, energy and environment, national security, and intergovernmental affairs.",
+  "jurisdiction_source": "https://oversight.house.gov/about/",
+  "youtube_id": "UCXSlyao4qkUFiPqghptHtZA"
+ },
+ {
+  "type": "house",
+  "name": "House Committee on Homeland Security",
+  "url": "https://homeland.house.gov/",
+  "minority_url": "https://republicans-homeland.house.gov/",
+  "thomas_id": "HSHM",
+  "house_committee_id": "HM",
+  "subcommittees": [
+   {
+    "name": "Border Security and Enforcement",
+    "thomas_id": "11",
+    "address": "176 FHOB; Washington, DC 20515",
+    "phone": "(202) 226-8417"
+   },
+   {
+    "name": "Emergency Management and Technology",
+    "thomas_id": "12",
+    "address": "176 FHOB; Washington, DC 20515",
+    "phone": "(202) 226-8417"
+   }
+  ],
+  "address": "176 FHOB; Washington, DC 20515-6480",
+  "phone": "(202) 226-8417",
+  "jurisdiction": "The House Committee on Homeland Security has jurisdiction over matters related to national defense. It has six subcommittees on border and maritime security; counterterrorism and intelligence; cybersecurity and infrastructure protection; emergency preparedness, response, and communications; oversight and management efficiency; and transportation and protective security. The Committee was created in 2002 in the aftermath of the September 11th, 2001 attacks.",
+  "jurisdiction_source": "https://homeland.house.gov/subcommittee/full_committee/",
+  "youtube_id": "UC6Vg3_8RRaIVLJFyo7WZfzA"
+ },
+ {
+  "type": "house",
+  "name": "House Committee on Natural Resources",
+  "url": "https://naturalresources.house.gov/",
+  "minority_url": "https://republicans-naturalresources.house.gov/",
+  "thomas_id": "HSII",
+  "house_committee_id": "II",
+  "subcommittees": [
+   {
+    "name": "Energy and Mineral Resources",
+    "thomas_id": "06",
+    "address": "1333 LHOB; Washington, DC 20515",
+    "phone": "(202) 225-9297"
+   },
+   {
+    "name": "Federal Lands",
+    "thomas_id": "10",
+    "address": "1329 LHOB; Washington, DC 20515",
+    "phone": "(202) 226-7736"
+   }
+  ],
+  "address": "1324A LHOB; Washington, DC 20515-6201",
+  "phone": "(202) 225-2761",
+  "jurisdiction": "The House Committee on Natural Resources considers legislation about American energy production, mineral lands and mining, fisheries and wildlife, public lands, oceans, Native Americans, irrigation and reclamation.",
+  "jurisdiction_source": "https://naturalresources.house.gov/about/",
+  "youtube_id": "UCB6LGE5-_i-xxtZxk1_SeTg"
+ },
+ {
+  "type": "senate",
+  "name": "United States Senate Caucus on International Narcotics Control",
+  "url": "http://www.drugcaucus.senate.gov/",
+  "thomas_id": "SCNC",
+  "senate_committee_id": "SCNC",
+  "jurisdiction": "The Senate Caucus on International Narcotics Control was created to “monitor and encourage United States Government and private programs seeking to expand international cooperation against drug abuse and narcotics trafficking” and to “monitor and promote international compliance with narcotics control treaties.” As a formal organization of the U.S. Senate, the Caucus has the status of a standing committee. The Caucus exercises oversight on a wide range of issues, including international counternarcotics assistance and domestic drug prevention and treatment programs. The Caucus has held numerous hearings over the years and has issued a number of reports on U.S. narcotics control policy.",
+  "jurisdiction_source": "http://www.drugcaucus.senate.gov/content/about",
+  "youtube_id": "UCD6CIIrqCTE08ZXPCzhoNyA",
+  "subcommittees": []
+ }
+]
