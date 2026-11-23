@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,13 @@ type Options struct {
 	Now        func() time.Time
 	Log        zerolog.Logger
 	Registerer prometheus.Registerer
+	// Roster serves the roster pages; nil leaves their routes out.
+	Roster RosterReader
+	// PortraitDir is where the portraits job writes; empty serves none.
+	PortraitDir string
+	// Jobs are the registered job names; the status page lists only these.
+	// Nil lists every recorded job.
+	Jobs []string
 }
 
 // contentSecurityPolicy keeps every fetch the page makes on this origin
@@ -97,13 +105,29 @@ func New(o Options) (http.Handler, error) {
 	if err := o.Registerer.Register(requests); err != nil {
 		return nil, err
 	}
+	a := &api{roster: o.Roster, portraitDir: o.PortraitDir}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("GET /api/status", statusHandler(o))
+	if o.Roster != nil {
+		mux.HandleFunc("GET /api/congress", a.congressHandler)
+		mux.HandleFunc("GET /api/members", a.membersHandler)
+		mux.HandleFunc("GET /api/people/{id}", a.personHandler)
+		mux.HandleFunc("GET /api/committees", a.committeesHandler)
+		mux.HandleFunc("GET /api/committees/{id}", a.committeeHandler)
+		mux.HandleFunc("GET /api/search", a.searchHandler)
+		mux.HandleFunc("GET /portraits/{name}", a.portraitHandler)
+	}
 	// Every pattern names a method, so the mux never reports a request path
 	// as the matched pattern, and the route label stays bounded.
 	mux.Handle("GET /", spaHandler(o.UI))
 	return observe(o.Log, o.Now, requests, mux), nil
+}
+
+// api holds what the data handlers read.
+type api struct {
+	roster      RosterReader
+	portraitDir string
 }
 
 // Internal returns the handler for the internal port: /metrics and a health
@@ -129,6 +153,9 @@ func statusHandler(o Options) http.HandlerFunc {
 			st.JobsError = "the job history could not be read"
 		}
 		for _, j := range jobs {
+			if o.Jobs != nil && !slices.Contains(o.Jobs, j.Name) {
+				continue // a job since removed; its last run is history, not status
+			}
 			st.Jobs = append(st.Jobs, JobStatus{
 				Name: j.Name, LastRun: j.LastRun, LastOK: j.LastOK, OK: j.OK,
 				DurationMs: j.LastDuration.Milliseconds(), Message: j.Message,

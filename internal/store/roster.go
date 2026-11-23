@@ -269,8 +269,8 @@ type queryer interface {
 }
 
 // eachRow runs query and calls fn for each row.
-func eachRow(ctx context.Context, q queryer, query string, fn func(*sql.Rows) error) error {
-	rows, err := q.QueryContext(ctx, query)
+func eachRow(ctx context.Context, q queryer, query string, fn func(*sql.Rows) error, args ...any) error {
+	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}

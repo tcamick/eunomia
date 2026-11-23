@@ -1,6 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { duration, localDateTime, relativeTime } from './format.ts';
+import { calendarDate, duration, localDateTime, ordinal, relativeTime, seatName, year } from './format.ts';
+
+test('calendarDate never shifts a date west of UTC', () => {
+  // Formatting with UTC: the 3rd stays the 3rd whatever the viewer's zone.
+  assert.equal(calendarDate('2027-01-03', 'en-US'), 'Jan 3, 2027');
+  assert.equal(calendarDate('2026-11-03', 'en-US'), 'Nov 3, 2026');
+  assert.equal(calendarDate('nonsense', 'en-US'), 'unknown');
+  assert.equal(calendarDate(undefined, 'en-US'), 'unknown');
+  assert.equal(year('2027-01-03'), '2027');
+});
+
+test('ordinal and seatName', () => {
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 52].map(ordinal), ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '52nd']);
+  assert.equal(seatName({ body: 'house', stateName: 'California', district: 12 }), "California's 12th district");
+  assert.equal(seatName({ body: 'house', stateName: 'Wyoming', district: 0 }), 'Wyoming at large');
+  assert.equal(seatName({ body: 'senate', stateName: 'Vermont' }), 'Vermont');
+});
 
 const now = new Date('2026-11-22T12:00:00Z');
 

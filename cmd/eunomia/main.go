@@ -25,9 +25,13 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/tcamick/eunomia/internal/config"
+	"github.com/tcamick/eunomia/internal/fetch"
 	"github.com/tcamick/eunomia/internal/httpapi"
 	"github.com/tcamick/eunomia/internal/jobs"
+	"github.com/tcamick/eunomia/internal/legislators"
 	"github.com/tcamick/eunomia/internal/logging"
+	"github.com/tcamick/eunomia/internal/portraits"
+	"github.com/tcamick/eunomia/internal/roster"
 	"github.com/tcamick/eunomia/internal/store"
 	"github.com/tcamick/eunomia/internal/version"
 	"github.com/tcamick/eunomia/web"
@@ -90,7 +94,7 @@ func run(args []string, stdout, stderr io.Writer, getenv func(string) string) in
 	}
 	log := logging.New(stderr, cfg.LogLevel, cfg.LogFormat)
 
-	registry, err := jobs.NewRegistry(jobs.Noop{})
+	registry, err := jobs.NewRegistry(buildJobs(deps{})...)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not register jobs")
 		return exitFail
@@ -124,7 +128,7 @@ func run(args []string, stdout, stderr io.Writer, getenv func(string) string) in
 		fmt.Fprintf(stderr, "job takes one name, got %q\n", fs.Args())
 		return exitUsage
 	}
-	return runJob(ctx, cfg, st, registry, fs.Arg(0))
+	return runJob(ctx, cfg, st, fs.Arg(0))
 }
 
 // openStore creates the data directory if needed and opens and migrates the
@@ -151,10 +155,52 @@ func openStore(ctx context.Context, dataDir string) (*store.Store, error) {
 	return st, nil
 }
 
+// deps are what the jobs are built from. Listing the jobs needs only their
+// names, so a zero deps builds them too.
+type deps struct {
+	st      *store.Store
+	get     *fetch.Client
+	dataDir string
+}
+
+// fetchSources are every source a job may fetch: the values of the fetch
+// metric's source label.
+var fetchSources = []string{
+	legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership, portraits.Source,
+}
+
+// fetchPace is the gap between two requests to one host. The sources are
+// static files on one host (GitHub Pages); half a second keeps the first
+// portraits run to about five minutes.
+const fetchPace = 500 * time.Millisecond
+
+// buildJobs returns every job, in registration order.
+func buildJobs(d deps) []jobs.Job {
+	src := legislators.NewClient(d.get, legislators.DefaultBase, legislators.MinMembers)
+	return []jobs.Job{
+		jobs.Noop{},
+		roster.NewJob(src, d.st, legislators.DefaultBase, time.Now),
+		portraits.NewJob(d.get, d.st, portraits.DefaultBase, filepath.Join(d.dataDir, portraitDir), time.Now),
+	}
+}
+
+// portraitDir is the portraits' directory inside the data directory.
+const portraitDir = "portraits"
+
 // runJob runs one job, then pushes the run's gauges if a Pushgateway is set.
-func runJob(ctx context.Context, cfg *config.Config, st *store.Store, registry *jobs.Registry, name string) int {
+func runJob(ctx context.Context, cfg *config.Config, st *store.Store, name string) int {
 	log := zerolog.Ctx(ctx)
 	reg := prometheus.NewRegistry()
+	client, err := fetch.New(fetch.Options{Sources: fetchSources, Pace: fetchPace, Registerer: reg})
+	if err != nil {
+		log.Error().Err(err).Msg("Could not build the fetch client")
+		return exitFail
+	}
+	registry, err := jobs.NewRegistry(buildJobs(deps{st: st, get: client, dataDir: cfg.DataDir})...)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not register jobs")
+		return exitFail
+	}
 	runner, err := jobs.NewRunner(registry, st, reg, time.Now)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not build the job runner")
@@ -201,6 +247,7 @@ func serve(ctx context.Context, cfg *config.Config, st *store.Store, registry *j
 	)
 	app, err := httpapi.New(httpapi.Options{
 		Store: st, UI: web.FS(), Version: version.Version, Now: time.Now, Log: *log, Registerer: reg,
+		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(),
 	})
 	if err != nil {
 		return fmt.Errorf("build handler: %w", err)

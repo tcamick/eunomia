@@ -1,0 +1,288 @@
+package roster
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/tcamick/eunomia/internal/legislators"
+	"github.com/tcamick/eunomia/internal/store"
+)
+
+const today = "2026-11-22"
+
+var t0 = time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+
+// snapshot reads the legislators package's fixtures (real files, trimmed).
+func snapshot(t *testing.T) *legislators.Snapshot {
+	t.Helper()
+	read := func(name string) []byte {
+		b, err := os.ReadFile(filepath.Join("..", "legislators", "testdata", name))
+		require.NoError(t, err, "reading fixture %s", name)
+		return b
+	}
+	ls, err := legislators.ParseLegislators(read("legislators-current.json"), 1)
+	require.NoError(t, err, "parsing the members fixture")
+	cs, err := legislators.ParseCommittees(read("committees-current.json"))
+	require.NoError(t, err, "parsing the committees fixture")
+	ms, err := legislators.ParseMembership(read("committee-membership-current.json"))
+	require.NoError(t, err, "parsing the membership fixture")
+	return &legislators.Snapshot{Legislators: ls, Committees: cs, Membership: ms}
+}
+
+func desired(t *testing.T, snap *legislators.Snapshot) store.RosterState {
+	t.Helper()
+	d, err := Desired(snap)
+	require.NoError(t, err, "building rows from the snapshot")
+	return d
+}
+
+func openStore(t *testing.T) *store.Store {
+	t.Helper()
+	s, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "eunomia.sqlite"), func() time.Time { return t0 })
+	require.NoError(t, err, "opening a new database")
+	t.Cleanup(func() { _ = s.Close() })
+	_, err = s.Migrate(context.Background())
+	require.NoError(t, err, "applying migrations")
+	return s
+}
+
+// load applies the snapshot to s as a run of the job would, and returns the plan.
+func load(t *testing.T, s *store.Store, snap *legislators.Snapshot, day string) store.RosterPlan {
+	t.Helper()
+	ctx := context.Background()
+	have, err := s.RosterState(ctx)
+	require.NoError(t, err, "reading the stored roster")
+	p := Diff(have, desired(t, snap), day)
+	p.At, p.Source = t0, "https://example.org/legislators-current.json"
+	require.NoError(t, s.ApplyRoster(ctx, p), "applying the plan")
+	return p
+}
+
+func withoutMember(snap *legislators.Snapshot, bioguide string) *legislators.Snapshot {
+	out := *snap
+	out.Legislators = slices.DeleteFunc(slices.Clone(snap.Legislators), func(l legislators.Legislator) bool {
+		return l.ID.Bioguide == bioguide
+	})
+	return &out
+}
+
+// edit returns a copy of snap with fn applied to one member's deep copy.
+func edit(t *testing.T, snap *legislators.Snapshot, bioguide string, fn func(*legislators.Legislator)) *legislators.Snapshot {
+	t.Helper()
+	out := *snap
+	out.Legislators = slices.Clone(snap.Legislators)
+	for i, l := range out.Legislators {
+		if l.ID.Bioguide == bioguide {
+			l.Terms = slices.Clone(l.Terms)
+			l.Leadership = slices.Clone(l.Leadership)
+			fn(&l)
+			out.Legislators[i] = l
+			return &out
+		}
+	}
+	t.Fatalf("no member %s in the fixture", bioguide)
+	return nil
+}
+
+func kinds(cs []store.Change) []string {
+	var out []string
+	for _, c := range cs {
+		out = append(out, c.Kind)
+	}
+	return out
+}
+
+func TestDiff_FirstLoadWritesEveryRowAndRecordsNoChanges(t *testing.T) {
+	t.Parallel()
+	snap := snapshot(t)
+	p := Diff(store.RosterState{}, desired(t, snap), today)
+	assert.Len(t, p.People, 15)
+	assert.NotEmpty(t, p.Terms)
+	assert.NotEmpty(t, p.Committees)
+	assert.NotEmpty(t, p.Seats)
+	assert.Empty(t, p.Changes, "fifteen arrivals on a first load are not news")
+}
+
+func TestDiff_ASecondRunWithTheSameFileWritesNothing(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+
+	have, err := s.RosterState(context.Background())
+	require.NoError(t, err, "reading the stored roster")
+	p := Diff(have, desired(t, snap), today)
+	assert.True(t, p.Empty(), "an unchanged file must write nothing; got %d people, %d terms, %d leadership, %d committees, %d seats, %d changes",
+		len(p.People), len(p.Terms), len(p.Leadership), len(p.Committees), len(p.Seats), len(p.Changes))
+}
+
+func TestDiff_AMemberMissingFromTheFileKeepsTheirHistory(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+
+	p := load(t, s, withoutMember(snap, "S000033"), "2026-12-01")
+	assert.Equal(t, []string{KindLeft}, kinds(p.Changes))
+	assert.Equal(t, "S000033", p.Changes[0].Person)
+	assert.Empty(t, p.DeleteTerms, "no term of a departed member is deleted")
+	assert.Empty(t, p.DeleteLeadership, "no role of a departed member is deleted")
+
+	st, err := s.RosterState(context.Background())
+	require.NoError(t, err, "reading the stored roster")
+	sanders, ok := st.People["S000033"]
+	require.True(t, ok, "the person's row stays")
+	assert.False(t, sanders.InCongress)
+	var current, closed int
+	for _, tm := range st.Terms {
+		if tm.Person != "S000033" {
+			continue
+		}
+		if tm.Current {
+			current++
+		}
+		if tm.LeftOn == "2026-12-01" {
+			closed++
+		}
+	}
+	assert.Zero(t, current, "no current term once the source stops listing them")
+	assert.Equal(t, 1, closed, "the term they were serving records when they left the list")
+	assert.Greater(t, countTerms(st, "S000033"), 1, "every past term is kept")
+
+	again := Diff(st, desired(t, withoutMember(snap, "S000033")), "2026-12-02")
+	assert.True(t, again.Empty(), "a departure is recorded once")
+}
+
+func countTerms(st store.RosterState, person string) int {
+	n := 0
+	for k := range st.Terms {
+		if k.Person == person {
+			n++
+		}
+	}
+	return n
+}
+
+func TestDiff_AReturningMemberIsAnArrival(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+	load(t, s, withoutMember(snap, "N000147"), today)
+	p := load(t, s, snap, today)
+	require.Equal(t, []string{KindArrived}, kinds(p.Changes))
+	assert.Contains(t, p.Changes[0].Summary, "District of Columbia at large")
+}
+
+func TestDiff_APartySwitchIsOneChange(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+	switched := edit(t, snap, "W000800", func(l *legislators.Legislator) {
+		last := len(l.Terms) - 1
+		l.Terms[last].Party = "Independent"
+	})
+	p := load(t, s, switched, today)
+	require.Equal(t, []string{KindPartyChanged}, kinds(p.Changes))
+	assert.Contains(t, p.Changes[0].Summary, "from Democratic to Independent", "the party's own name, not the source's 'Democrat'")
+}
+
+func TestDiff_LeadershipGainedAndLost(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+
+	gained := edit(t, snap, "W000800", func(l *legislators.Legislator) {
+		l.Leadership = append(l.Leadership, legislators.LeadershipRole{Title: "Senate Example Whip", Chamber: "senate", Start: "2026-11-20"})
+	})
+	p := load(t, s, gained, today)
+	require.Equal(t, []string{KindLeadershipGained}, kinds(p.Changes))
+
+	ended := edit(t, gained, "W000800", func(l *legislators.Legislator) {
+		l.Leadership[len(l.Leadership)-1].End = "2026-11-21"
+	})
+	p = load(t, s, ended, today)
+	require.Equal(t, []string{KindLeadershipLost}, kinds(p.Changes))
+}
+
+func TestDiff_ANewChairIsRecorded(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+
+	// Give the chair's title on HSED to another listed member.
+	out := *snap
+	out.Membership = map[string][]legislators.Member{}
+	for id, ms := range snap.Membership {
+		out.Membership[id] = slices.Clone(ms)
+	}
+	var chair string
+	for i, m := range out.Membership["HSED"] {
+		if isLeadSeat(m.Title) && m.Side == "majority" {
+			chair = m.Bioguide
+			out.Membership["HSED"][i].Title = ""
+		}
+	}
+	require.NotEmpty(t, chair, "the fixture lists HSED's chair")
+	out.Membership["HSED"] = append(out.Membership["HSED"], legislators.Member{Bioguide: "S001231", Side: "majority", Rank: 1, Title: "Chair"})
+
+	p := load(t, s, &out, today)
+	require.Equal(t, []string{KindChairChanged}, kinds(p.Changes))
+	assert.Equal(t, "HSED", p.Changes[0].Committee)
+}
+
+func TestDiff_ACorrectedTermStartReplacesTheOldRow(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+	fixed := edit(t, snap, "W000800", func(l *legislators.Legislator) { l.Terms[0].Start = "2007-01-05" })
+	p := load(t, s, fixed, today)
+	assert.Len(t, p.DeleteTerms, 1, "the source's correction replaces the old row")
+	assert.Empty(t, p.Changes, "a correction is not news")
+}
+
+func TestDiff_ACommitteeTheSourceDropsIsKeptAndMarkedPast(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+	out := *snap
+	out.Committees = slices.DeleteFunc(slices.Clone(snap.Committees), func(c legislators.Committee) bool { return c.ID == "HSBU" })
+	delete(out.Membership, "HSBU") // a copy of the map is not needed: snap is not used again
+	load(t, s, &out, today)
+	st, err := s.RosterState(context.Background())
+	require.NoError(t, err, "reading the stored roster")
+	c, ok := st.Committees["HSBU"]
+	require.True(t, ok, "the committee's row stays")
+	assert.False(t, c.Current)
+	for k := range st.Seats {
+		assert.NotEqual(t, "HSBU", k.Committee, "its seats, a snapshot, are gone")
+	}
+}
+
+func TestParty_UsesThePartysOwnName(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "Democratic", Party("Democrat"))
+	assert.Equal(t, "Republican", Party("Republican"))
+	assert.Equal(t, "Independent", Party("Independent"))
+	assert.Equal(t, "Libertarian", Party("Libertarian"), "any other party is kept as the source gives it")
+}
+
+func TestOrdinal(t *testing.T) {
+	t.Parallel()
+	tests := map[int]string{1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 11: "11th", 12: "12th", 13: "13th", 21: "21st", 22: "22nd", 52: "52nd", 111: "111th"}
+	for n, want := range tests {
+		assert.Equal(t, want, Ordinal(n), "ordinal of %d", n)
+	}
+}

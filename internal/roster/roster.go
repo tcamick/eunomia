@@ -204,7 +204,7 @@ func (d *differ) departures() {
 func (d *differ) terms() {
 	for _, k := range sortedTermKeys(d.want.Terms) {
 		w := d.want.Terms[k]
-		if h, ok := d.have.Terms[k]; !ok || h != w {
+		if h, ok := d.have.Terms[k]; !ok || !sameTerm(h, w) {
 			d.p.Terms = append(d.p.Terms, w)
 		}
 	}
@@ -305,6 +305,24 @@ func (d *differ) seats() {
 			d.p.DeleteSeats = append(d.p.DeleteSeats, k)
 		}
 	}
+}
+
+// sameTerm compares two terms by value: District and Class are pointers, and
+// == on the structs would compare the pointers, so every run would rewrite
+// every term.
+func sameTerm(a, b store.Term) bool {
+	if !sameInt(a.District, b.District) || !sameInt(a.Class, b.Class) {
+		return false
+	}
+	a.District, a.Class, b.District, b.Class = nil, nil, nil, nil
+	return a == b
+}
+
+func sameInt(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // isLeadSeat reports whether a committee title is a chair or ranking member.
