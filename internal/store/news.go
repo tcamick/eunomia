@@ -148,6 +148,27 @@ func (s *Store) NamedMembers(ctx context.Context) ([]NamedMember, error) {
 	return out, nil
 }
 
+// FormerMembers lists everyone in people who no longer sits, with their
+// names only: the tagger blanks these names out so that "Virginia Foxx"
+// is never taken for Virginia after the member leaves, but tags no one by them.
+func (s *Store) FormerMembers(ctx context.Context) ([]NamedMember, error) {
+	var out []NamedMember
+	err := eachRow(ctx, s.db, `
+		SELECT id, first_name, COALESCE(nickname, ''), last_name, display_name
+		FROM people WHERE in_congress = 0 ORDER BY id`, func(r *sql.Rows) error {
+		var m NamedMember
+		if err := r.Scan(&m.ID, &m.First, &m.Nickname, &m.Last, &m.Display); err != nil {
+			return err
+		}
+		out = append(out, m)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list former members: %w", err)
+	}
+	return out, nil
+}
+
 // Mention is one person or state a story names.
 type Mention struct {
 	Kind string `json:"kind"` // "person" or "state"

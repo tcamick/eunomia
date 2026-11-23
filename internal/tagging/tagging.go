@@ -44,11 +44,14 @@ type Matcher struct {
 	surnames  map[string]map[string][]string // body → surname → members
 	stateOf   map[string]string              // member → state code
 	places    []place                        // longest name first
+	masks     []string                       // former members' names: blanked, never tagged; longest first
 }
 
 // New builds a matcher from the sitting members. A full name two members
-// share names neither.
-func New(members []store.NamedMember) *Matcher {
+// share names neither. Former members' names are blanked out before states
+// and titles are looked for, so "Virginia Foxx" never tags Virginia after
+// the member has left, but they tag no one.
+func New(members, former []store.NamedMember) *Matcher {
 	m := &Matcher{
 		fullNames: map[string]string{},
 		surnames:  map[string]map[string][]string{},
@@ -81,6 +84,21 @@ func New(members []store.NamedMember) *Matcher {
 			return len(m.nameOrder[a]) > len(m.nameOrder[b])
 		}
 		return m.nameOrder[a] < m.nameOrder[b]
+	})
+	seen := map[string]bool{}
+	for _, p := range former {
+		for _, name := range fullNames(p) {
+			if !seen[name] {
+				seen[name] = true
+				m.masks = append(m.masks, name)
+			}
+		}
+	}
+	sort.Slice(m.masks, func(a, b int) bool {
+		if len(m.masks[a]) != len(m.masks[b]) {
+			return len(m.masks[a]) > len(m.masks[b])
+		}
+		return m.masks[a] < m.masks[b]
 	})
 	for _, j := range geo.All() {
 		m.places = append(m.places, place{name: j.Name, code: j.Code})
@@ -116,13 +134,18 @@ func (m *Matcher) Tag(text string) []store.Mention {
 			masked = masked[:at] + strings.Repeat(" ", len(name)) + masked[at+len(name):]
 		}
 	}
+	for _, name := range m.masks {
+		for _, at := range wordIndexes(masked, name) {
+			masked = masked[:at] + strings.Repeat(" ", len(name)) + masked[at+len(name):]
+		}
+	}
 	states := m.tagStates(masked)
 	for code := range states {
 		found[store.Mention{Kind: KindState, Ref: code}] = true
 	}
 	for body, words := range titles {
 		for surname, ids := range m.surnames[body] {
-			if !afterTitle(text, words, surname) {
+			if !afterTitle(masked, words, surname) {
 				continue
 			}
 			if id, ok := m.pick(ids, states); ok {
@@ -208,16 +231,32 @@ func startsWord(s, word string) bool {
 // afterTitle reports whether text has one of the titles, then the surname
 // as a whole word: "Sen. Scott", "Senator Scott's". A title that is not a
 // sitting member's ("state Sen. Scott", "former Rep. Scott", "ex-Sen.
-// Scott") does not count: a miss before a wrong link (ADR 0008).
+// Scott") does not count, nor does a surname followed by another name
+// ("Rep. Grant Smith": Grant is a first name there). A miss before a wrong
+// link (ADR 0008).
 func afterTitle(text string, words []string, surname string) bool {
 	for _, w := range words {
-		for _, at := range wordIndexes(text, w+" "+surname) {
-			if !notSitting(text[:at]) {
+		needle := w + " " + surname
+		for _, at := range wordIndexes(text, needle) {
+			if !notSitting(text[:at]) && !nameFollows(text[at+len(needle):]) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// nameFollows reports whether after starts with a space and a capitalised
+// word: another part of a name. "Rep. Johnson, R-La." and "Sen. Sanders
+// (I-Vt.)" are not followed by a name; "Rep. Johnson Smith" is.
+func nameFollows(after string) bool {
+	rest, ok := strings.CutPrefix(after, " ")
+	if !ok {
+		return false
+	}
+	first, n := utf8.DecodeRuneInString(rest)
+	second, _ := utf8.DecodeRuneInString(rest[n:])
+	return unicode.IsUpper(first) && unicode.IsLower(second)
 }
 
 // notSitting reports whether the text just before a title makes it someone

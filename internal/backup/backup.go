@@ -53,7 +53,7 @@ func checkDisk(dest string) error {
 var ErrBusy = errors.New("another backup is running")
 
 // staleLock is how old a lock may be before it is taken to be left by a
-// run that died: longer than the CronJob's one-hour deadline.
+// run that died: longer than the CronJob's half-hour deadline (k8s/app/backup.yaml).
 const staleLock = 2 * time.Hour
 
 const lockName = ".lock"

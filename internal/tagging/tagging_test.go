@@ -28,7 +28,7 @@ func state(code string) store.Mention { return store.Mention{Kind: KindState, Re
 
 func TestTag(t *testing.T) {
 	t.Parallel()
-	m := New(members)
+	m := New(members, nil)
 	tests := map[string]struct {
 		text string
 		want []store.Mention
@@ -45,8 +45,14 @@ func TestTag(t *testing.T) {
 		"a state senator with a US senator's surname": {
 			text: "State Sen. Sanders of the Vermont legislature spoke.", want: []store.Mention{state("VT")},
 		},
-		"a state representative":         {text: "Lawmakers heard state Rep. Sanders.", want: nil},
-		"a former senator":               {text: "Former Sen. Sanders spoke.", want: nil},
+		"a state representative": {text: "Lawmakers heard state Rep. Sanders.", want: nil},
+		"a former senator":       {text: "Former Sen. Sanders spoke.", want: nil},
+		"a title, then a first name that is a member's surname": {
+			text: "Rep. Johnson Smith, a former aide, spoke.", want: nil,
+		},
+		"a title, then a first name that is a senator's surname": {text: "Sen. Sanders Ford of Michigan spoke.", want: []store.Mention{state("MI")}},
+		"a title and surname, then the party and state":          {text: "Rep. Johnson, R-La., spoke.", want: []store.Mention{person("J000299")}},
+		"a title and surname, then a parenthesis":                {text: "Sen. Sanders (I-Vt.) spoke.", want: []store.Mention{person("S000033")}},
 		"an ex-senator":                  {text: "Ex-Sen. Sanders spoke.", want: nil},
 		"two members with one full name": {text: "Sam Doe spoke.", want: nil},
 		"a surname inside a longer word": {text: "Sen. Scottsdale is no one.", want: nil},
@@ -71,4 +77,21 @@ func TestTag(t *testing.T) {
 			assert.Equal(t, tc.want, m.Tag(tc.text), "tags for %q", tc.text)
 		})
 	}
+}
+
+// A former member's name is blanked out before states are looked for, so
+// it never tags a state, and never tags the person: only sitting members
+// are tagged (ADR 0008).
+func TestTag_AFormerMembersNameTagsNoOne(t *testing.T) {
+	t.Parallel()
+	var sitting []store.NamedMember
+	for _, p := range members {
+		if p.ID != "F000450" {
+			sitting = append(sitting, p)
+		}
+	}
+	former := []store.NamedMember{{ID: "F000450", First: "Virginia", Last: "Foxx", Display: "Virginia Foxx"}}
+	m := New(sitting, former)
+	assert.Nil(t, m.Tag("Virginia Foxx retired."), "neither the person nor Virginia")
+	assert.Equal(t, []store.Mention{state("VA")}, m.Tag("Virginia Foxx spoke in Virginia."), "the state, named on its own, still is")
 }

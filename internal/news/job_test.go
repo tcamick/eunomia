@@ -313,3 +313,36 @@ func TestJob_AMemberWhoLeavesKeepsTheStoriesThatNamedThem(t *testing.T) {
 	require.NoError(t, err, "listing Ann's stories")
 	assert.Len(t, rows, 1, "Ann's page keeps the story")
 }
+
+// When a member whose name holds a state's leaves, the next run does not
+// start reading their name as the state.
+func TestJob_ADepartedMembersNameDoesNotBecomeAState(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	ctx := context.Background()
+	district := 5
+	foxx := store.Person{ID: "F000450", Bioguide: "F000450", First: "Virginia", Last: "Foxx", Display: "Virginia Foxx", InCongress: true}
+	require.NoError(t, s.ApplyRoster(ctx, store.RosterPlan{At: t0, Source: "https://example.org/",
+		People: []store.Person{foxx},
+		Terms: []store.Term{{Person: "F000450", Office: "house/NC/5", Body: "house", State: "NC", District: &district,
+			Start: "2025-01-03", End: "2027-01-03", Party: "Republican", Current: true}},
+	}), "seeding the member")
+	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
+	feeds := &fakeFeeds{bodies: map[string][]byte{feed.URL: oneItem("a", "Virginia Foxx retires", "Mon, 23 Nov 2026 20:00:00 +0000")},
+		etags: map[string]string{}, fail: map[string]error{}}
+	now := t0
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return now }, nil)
+	require.NoError(t, err, "building the job")
+	require.NoError(t, j.Run(ctx), "the run that tags the member")
+
+	foxx.InCongress = false
+	require.NoError(t, s.ApplyRoster(ctx, store.RosterPlan{At: t0.Add(time.Hour), Source: "https://example.org/",
+		People: []store.Person{foxx}}), "the member leaves")
+	now = t0.Add(2 * time.Hour)
+	require.NoError(t, j.Run(ctx), "the run after the member left")
+
+	for id, ms := range allMentions(t, s) {
+		assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "F000450", Name: "Virginia Foxx"}}, ms,
+			"story %d keeps the person and gains no state", id)
+	}
+}

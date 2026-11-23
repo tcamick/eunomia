@@ -35,6 +35,7 @@ type Store interface {
 	RecordSourceCheck(ctx context.Context, st store.SourceState, changed bool) error
 	AddStories(ctx context.Context, feed, source string, at time.Time, items []store.NewStory) ([]int64, error)
 	NamedMembers(ctx context.Context) ([]store.NamedMember, error)
+	FormerMembers(ctx context.Context) ([]store.NamedMember, error)
 	StoriesSince(ctx context.Context, since time.Time) ([]store.StoryText, error)
 	ReplaceMentions(ctx context.Context, want map[int64][]store.Mention, matchable map[string]bool) (int, error)
 }
@@ -153,11 +154,15 @@ func (j *Job) retag(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	former, err := j.st.FormerMembers(ctx)
+	if err != nil {
+		return 0, err
+	}
 	stories, err := j.st.StoriesSince(ctx, j.now().Add(-TagWindow))
 	if err != nil {
 		return 0, err
 	}
-	m := tagging.New(members)
+	m := tagging.New(members, former)
 	want := make(map[int64][]store.Mention, len(stories))
 	for _, s := range stories {
 		want[s.ID] = m.Tag(s.Title + "\n" + s.Summary)
