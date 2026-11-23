@@ -154,13 +154,20 @@ func (m *Matcher) Tag(text string) []store.Mention {
 	for code := range states {
 		found[store.Mention{Kind: KindState, Ref: code}] = true
 	}
+	// Those named in full, before any title is read, so the order titles
+	// are looked at in never matters.
+	named := map[string]bool{}
+	for k := range found {
+		if k.Kind == KindPerson {
+			named[k.Ref] = true
+		}
+	}
 	for body, words := range titles {
 		for surname, ids := range m.surnames[body] {
-			if !afterTitle(masked, words, surname) {
-				continue
-			}
-			if id, ok := m.pick(ids, states); ok {
-				found[store.Mention{Kind: KindPerson, Ref: id}] = true
+			for _, after := range titleUses(masked, words, surname) {
+				if id, ok := m.pick(ids, after, named); ok {
+					found[store.Mention{Kind: KindPerson, Ref: id}] = true
+				}
 			}
 		}
 	}
@@ -180,15 +187,36 @@ func (m *Matcher) Tag(text string) []store.Mention {
 	return out
 }
 
-// pick chooses the member a title and surname name: the only one in the
-// chamber with that surname, or the only one whose state the text names.
-func (m *Matcher) pick(ids []string, states map[string]bool) (string, bool) {
+// pick chooses the member a title and surname mean. One member with the
+// surname: that one. Several: the one whose state follows the name ("Sen.
+// Scott of Florida"), or else the one the text names in full ("Tim Scott
+// … Sen. Scott"); otherwise no one. A state named elsewhere in the text
+// does not choose: "Sen. Scott (R-S.C.) criticized Florida's governor" is
+// not about Florida's senator (ADR 0008).
+func (m *Matcher) pick(ids []string, after string, named map[string]bool) (string, bool) {
 	if len(ids) == 1 {
 		return ids[0], true
 	}
+	if rest, ok := strings.CutPrefix(after, " of "); ok {
+		for _, p := range m.places {
+			if !startsWord(rest, p.name) {
+				continue
+			}
+			var match []string
+			for _, id := range ids {
+				if m.stateOf[id] == p.code {
+					match = append(match, id)
+				}
+			}
+			if len(match) == 1 {
+				return match[0], true
+			}
+			return "", false // a state is given and settles nothing: no guess
+		}
+	}
 	var match []string
 	for _, id := range ids {
-		if states[m.stateOf[id]] {
+		if named[id] {
 			match = append(match, id)
 		}
 	}
@@ -224,7 +252,9 @@ func (m *Matcher) tagStates(text string) map[string]bool {
 // the state: "state of Georgia", "Washington state", "New York State".
 func stateContext(before, after string) bool {
 	b := strings.ToLower(strings.TrimRightFunc(before, unicode.IsSpace))
-	if strings.HasSuffix(b, "state of") {
+	// "the state of Georgia" is the state; "the head of state of Georgia"
+	// and "the secretary of state of Georgia" may be the country's.
+	if strings.HasSuffix(b, "state of") && !strings.HasSuffix(b, "of state of") {
 		return true
 	}
 	a := strings.TrimLeftFunc(after, unicode.IsSpace)
@@ -239,22 +269,24 @@ func startsWord(s, word string) bool {
 	return !isWordRune(r)
 }
 
-// afterTitle reports whether text has one of the titles, then the surname
-// as a whole word: "Sen. Scott", "Senator Scott's". A title that is not a
+// titleUses returns the text after each place text has one of the titles,
+// then the surname as a whole word: "Sen. Scott", "Senator Scott's". A title that is not a
 // sitting member's ("state Sen. Scott", "former Rep. Scott", "ex-Sen.
 // Scott") does not count, nor does a surname followed by another name
 // ("Rep. Grant Smith": Grant is a first name there). A miss before a wrong
 // link (ADR 0008).
-func afterTitle(text string, words []string, surname string) bool {
+func titleUses(text string, words []string, surname string) []string {
+	var out []string
 	for _, w := range words {
 		needle := w + " " + surname
 		for _, at := range wordIndexes(text, needle) {
-			if !notSitting(text[:at]) && !nameFollows(text[at+len(needle):]) {
-				return true
+			after := text[at+len(needle):]
+			if !notSitting(text[:at]) && !nameFollows(after) {
+				out = append(out, after)
 			}
 		}
 	}
-	return false
+	return out
 }
 
 // nameFollows reports whether after starts with a space and a capitalised

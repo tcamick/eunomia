@@ -115,17 +115,27 @@ func TestParse_EnforcesTheRulesForOutsideText(t *testing.T) {
 
 func TestParsePublished_ReadsTheFeedsDateForms(t *testing.T) {
 	t.Parallel()
-	want := time.Date(2026, 11, 23, 13, 45, 45, 0, time.UTC)
-	tests := map[string]string{
-		"a numeric zone":          "Mon, 23 Nov 2026 08:45:45 -0500",
-		"a named zone":            "Mon, 23 Nov 2026 13:45:45 GMT",
-		"a single-digit day":      "Mon, 23 Nov 2026 13:45:45 +0000",
-		"without the day of week": "23 Nov 2026 13:45:45 +0000",
+	nov23 := time.Date(2026, 11, 23, 13, 45, 45, 0, time.UTC)
+	tests := map[string]struct {
+		raw  string
+		want time.Time
+	}{
+		"a numeric zone":          {"Mon, 23 Nov 2026 08:45:45 -0500", nov23},
+		"a named zone":            {"Mon, 23 Nov 2026 13:45:45 GMT", nov23},
+		"a single-digit day":      {"Tue, 3 Nov 2026 13:45:45 +0000", time.Date(2026, 11, 3, 13, 45, 45, 0, time.UTC)},
+		"without the day of week": {"23 Nov 2026 13:45:45 +0000", nov23},
+		// time.Parse reads a zone name it does not know as UTC; the US
+		// zones feeds use are mapped to their offsets.
+		"Eastern standard time": {"Mon, 23 Nov 2026 08:45:45 EST", nov23},
+		"Pacific standard time": {"Mon, 23 Nov 2026 05:45:45 PST", nov23},
+		"Eastern daylight time": {"Mon, 13 Jul 2026 09:45:45 EDT", time.Date(2026, 7, 13, 13, 45, 45, 0, time.UTC)},
+		"Central daylight time": {"Mon, 13 Jul 2026 08:45:45 CDT", time.Date(2026, 7, 13, 13, 45, 45, 0, time.UTC)},
 	}
-	for name, raw := range tests {
+	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			assert.True(t, want.Equal(parsePublished(raw)), "parsing %q", raw)
+			got := parsePublished(tc.raw)
+			assert.True(t, tc.want.Equal(got), "parsing %q gave %s", tc.raw, got)
 		})
 	}
 	assert.True(t, parsePublished("yesterday").IsZero(), "an unreadable date is unknown")

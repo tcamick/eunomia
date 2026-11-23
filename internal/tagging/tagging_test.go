@@ -33,13 +33,19 @@ func TestTag(t *testing.T) {
 		text string
 		want []store.Mention
 	}{
-		"a full name":                         {text: "Tim Scott spoke on Tuesday.", want: []store.Mention{person("S001184")}},
-		"a nickname and surname":              {text: "Bernie Sanders said no.", want: []store.Mention{person("S000033")}},
-		"the official full name":              {text: "Bernard Sanders voted.", want: []store.Mention{person("S000033")}},
-		"an accented name":                    {text: "Rep. Nydia Velázquez, of New York State, said.", want: []store.Mention{person("V000081"), state("NY")}},
-		"a title and a unique surname":        {text: "Sen. Sanders's bill passed.", want: []store.Mention{person("S000033")}},
-		"two senators with one surname":       {text: "Sen. Scott said the vote would wait.", want: nil},
-		"the surname and one's state":         {text: "Sen. Scott of Florida objected.", want: []store.Mention{person("S001217"), state("FL")}},
+		"a full name":                   {text: "Tim Scott spoke on Tuesday.", want: []store.Mention{person("S001184")}},
+		"a nickname and surname":        {text: "Bernie Sanders said no.", want: []store.Mention{person("S000033")}},
+		"the official full name":        {text: "Bernard Sanders voted.", want: []store.Mention{person("S000033")}},
+		"an accented name":              {text: "Rep. Nydia Velázquez, of New York State, said.", want: []store.Mention{person("V000081"), state("NY")}},
+		"a title and a unique surname":  {text: "Sen. Sanders's bill passed.", want: []store.Mention{person("S000033")}},
+		"two senators with one surname": {text: "Sen. Scott said the vote would wait.", want: nil},
+		"the surname and one's state":   {text: "Sen. Scott of Florida objected.", want: []store.Mention{person("S001217"), state("FL")}},
+		"a shared surname after the full name": {
+			text: "Tim Scott toured Florida on Monday. Sen. Scott said the plan works.", want: []store.Mention{person("S001184"), state("FL")},
+		},
+		"a shared surname and a state elsewhere": {
+			text: "Sen. Scott (R-S.C.) criticized Florida's governor.", want: []store.Mention{state("FL")},
+		},
 		"a surname unique to its chamber":     {text: "Speaker Johnson and Senator Johnson met.", want: []store.Mention{person("J000293")}},
 		"a House title with a senator's name": {text: "Rep. Sanders is not a member.", want: nil},
 		"a state senator with a US senator's surname": {
@@ -60,6 +66,7 @@ func TestTag(t *testing.T) {
 		"Washington alone":               {text: "Washington is gridlocked.", want: nil},
 		"Washington state":               {text: "Voters in Washington state approved it.", want: []store.Mention{state("WA")}},
 		"the state of Georgia":           {text: "In the state of Georgia, polls close at 7.", want: []store.Mention{state("GA")}},
+		"a head of state of Georgia":     {text: "The head of state of Georgia arrived.", want: nil},
 		"Georgia alone":                  {text: "Georgia and Armenia signed a treaty.", want: nil},
 		"New York City":                  {text: "New York City's mayor spoke.", want: nil},
 		"West Virginia is not Virginia":  {text: "West Virginia voted.", want: []store.Mention{state("WV")}},

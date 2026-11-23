@@ -67,6 +67,15 @@ All fixed:
 4. The looked-at checks: Sanders's page at 360 px is recorded below; the "In the news" sections on member and state pages are the same `StoryList` component keyboard-checked on `/news`, with the same controls.
 Nits: a feed id may not be another source's name (`legislators`, `committees`, `committee-membership`, `portraits`), with a test; a test comment and a test message corrected.
 
+## Review findings (fifth pass, 2026-11-23)
+All fixed:
+1. *Blocking:* a shared surname after a title was settled by a state named anywhere in the text: "Tim Scott toured Florida. Sen. Scott said…" tagged Rick Scott. Now only a state right after the name ("Sen. Scott of Florida") or a member with that surname named in full in the same text settles it; otherwise no one. Both of the reviewer's sentences are `TestTag` cases and failed before the change. ADR 0008 amended. Real data: unchanged (35 mentions, a run after the change wrote none).
+2. *Blocking:* the "single-digit day" date case had a two-digit day. Each case now has its own expected time; the single-digit case is 3 November.
+3. The US zone names (EST, PST, EDT, CDT) have cases; with the zone map removed, all four fail (checked).
+4. "The head of state of Georgia" no longer tags the state ("of state of" is refused), with a case.
+5. `k8s/app/backup.yaml` is named in k8s-conventions' Layout (amended), rather than splitting the seabass pieces across `storage.yaml` and `jobs.yaml`.
+Nit: the provenance-refusal cases are parallel subtests, each on its own store.
+
 ## Review findings not fixed, and why
 -
 

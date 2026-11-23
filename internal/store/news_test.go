@@ -72,20 +72,21 @@ func TestAddStories_TheStoreRefusesAnArticleBody(t *testing.T) {
 
 func TestAddStories_RefusesAStoryWithoutItsSourceOrTime(t *testing.T) {
 	t.Parallel()
-	s := open(t)
-	for name, call := range map[string]func() error{
-		"no source": func() error {
-			_, err := s.AddStories(context.Background(), "politics", "", t0, []NewStory{story("g", "", "T", t0)})
-			return err
-		},
-		"no time": func() error {
-			_, err := s.AddStories(context.Background(), "politics", politicsFeed, time.Time{}, []NewStory{story("g", "", "T", t0)})
-			return err
-		},
+	for name, tc := range map[string]struct {
+		source string
+		at     time.Time
+	}{
+		"no source": {source: "", at: t0},
+		"no time":   {source: politicsFeed, at: time.Time{}},
 	} {
-		require.Error(t, call(), "adding with %s", name)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			s := open(t)
+			_, err := s.AddStories(context.Background(), "politics", tc.source, tc.at, []NewStory{story("g", "", "T", t0)})
+			require.Error(t, err, "adding with %s", name)
+			assert.Zero(t, count(t, s, "SELECT count(*) FROM stories"), "nothing is written")
+		})
 	}
-	assert.Zero(t, count(t, s, "SELECT count(*) FROM stories"), "nothing is written")
 }
 
 func TestStories_FiltersAndOrder(t *testing.T) {
