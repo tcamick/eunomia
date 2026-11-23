@@ -114,6 +114,39 @@ func (s *Store) StoriesSince(ctx context.Context, since time.Time) ([]StoryText,
 	return out, nil
 }
 
+// NamedMember is a sitting member as tagging matches them: the names the
+// source gives, and the seat.
+type NamedMember struct {
+	ID       string
+	First    string
+	Nickname string
+	Last     string
+	Display  string
+	Body     string // "senate" or "house"
+	State    string
+}
+
+// NamedMembers lists the sitting members with their names, for tagging.
+func (s *Store) NamedMembers(ctx context.Context) ([]NamedMember, error) {
+	var out []NamedMember
+	err := eachRow(ctx, s.db, `
+		SELECT p.id, p.first_name, COALESCE(p.nickname, ''), p.last_name, p.display_name, t.body, t.state
+		FROM people p JOIN terms t ON t.person = p.id AND t.current = 1 AND t.unlisted_on IS NULL
+		WHERE p.in_congress = 1
+		ORDER BY p.id`, func(r *sql.Rows) error {
+		var m NamedMember
+		if err := r.Scan(&m.ID, &m.First, &m.Nickname, &m.Last, &m.Display, &m.Body, &m.State); err != nil {
+			return err
+		}
+		out = append(out, m)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list members for tagging: %w", err)
+	}
+	return out, nil
+}
+
 // Mention is one person or state a story names.
 type Mention struct {
 	Kind string `json:"kind"` // "person" or "state"

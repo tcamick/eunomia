@@ -165,4 +165,15 @@ func TestSetMarks_SetsClearsAndKeeps(t *testing.T) {
 	assert.Equal(t, 1, count(t, s, "SELECT count(*) FROM marks"), "and not written")
 }
 
+func TestNamedMembers_ListsSittingMembersWithTheirNamesAndSeat(t *testing.T) {
+	t.Parallel()
+	s := open(t)
+	ctx := context.Background()
+	require.NoError(t, s.ApplyRoster(ctx, onePlan(t0)), "seeding a member")
+	got, err := s.NamedMembers(ctx)
+	require.NoError(t, err, "listing members for tagging")
+	assert.Equal(t, []NamedMember{{ID: "A000001", First: "Ann", Last: "Able", Display: "Ann Able", Body: "house", State: "OH"}},
+		got, "the sitting member with her names and seat")
+}
+
 func ptrBool(b bool) *bool { return &b }
