@@ -1,0 +1,215 @@
+# Nightly backups to the external disk seabass, and a weekly restore drill
+# (PRD §8; docs/implementation-plan.md, E2). Modelled on Plutus's
+# deploy/k8s/neptune/plutus/backup.yaml, which has run since 2026-11-16.
+#
+# The disk is mounted on neptune at /srv/seabass. This volume is only the
+# eunomia-backups directory the owner made there (implementation plan,
+# prerequisites), never the whole disk: a pod's fsGroup applies to its whole
+# volume, and on the whole disk it would reach the owner's files too.
+# OnRootMismatch leaves the files alone once the directory's group is right.
+#
+# If the disk is missing, the directory does not exist on the system disk:
+# the pod cannot start, nothing is recorded, and the status page shows the
+# job overdue (cmd/eunomia, jobMaxAge). A disk that is mounted but is not
+# seabass has no marker, and the job fails at once, writing nothing.
+#
+# These pods carry their own name label: they reach DNS and the
+# Pushgateway (network.yaml) but not the internet, which they never need.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: eunomia-backups
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  claimRef:
+    namespace: eunomia
+    name: eunomia-backups
+  local:
+    path: /srv/seabass/eunomia-backups
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - neptune
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eunomia-backups
+  namespace: eunomia
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  volumeName: eunomia-backups
+  resources:
+    requests:
+      storage: 100Gi
+---
+# 12:30 UTC, after roster and portraits (10:23, 10:53), and away from
+# Plutus's backup at 13:00 on the same disk. One backup a day; a second run
+# the same day replaces that day's.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup
+  namespace: eunomia
+  labels:
+    app.kubernetes.io/name: eunomia-backup
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "30 12 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 14400
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: eunomia-backup
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: Never
+          serviceAccountName: eunomia-job
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            fsGroupChangePolicy: OnRootMismatch
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: job
+              image: eunomia
+              args:
+                - job
+                - -data-dir=/data
+                - -backup-dir=/backup
+                - -pushgateway-url=http://pushgateway.monitoring.svc:9091
+                - backup
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: backups
+                  mountPath: /backup
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: eunomia-data
+            - name: backups
+              persistentVolumeClaim:
+                claimName: eunomia-backups
+            # SQLite's temporary files, on a read-only root.
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi
+---
+# Sundays at 13:30 UTC, an hour after that day's backup: the newest backup
+# is copied to scratch space, opened and migrated as the server would open
+# it, checked and counted. It never writes to the backup disk, so it mounts
+# it read-only.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: restore-check
+  namespace: eunomia
+  labels:
+    app.kubernetes.io/name: eunomia-backup
+    app.kubernetes.io/component: restore-check
+spec:
+  schedule: "30 13 * * 0"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 14400
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: eunomia-backup
+            app.kubernetes.io/component: restore-check
+        spec:
+          restartPolicy: Never
+          serviceAccountName: eunomia-job
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            fsGroupChangePolicy: OnRootMismatch
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: job
+              image: eunomia
+              args:
+                - job
+                - -data-dir=/data
+                - -backup-dir=/backup
+                - -pushgateway-url=http://pushgateway.monitoring.svc:9091
+                - restore-check
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                # The data volume records the outcome on the status page.
+                - name: data
+                  mountPath: /data
+                - name: backups
+                  mountPath: /backup
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: eunomia-data
+            - name: backups
+              persistentVolumeClaim:
+                claimName: eunomia-backups
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi

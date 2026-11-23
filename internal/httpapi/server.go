@@ -50,6 +50,10 @@ type Options struct {
 	// routes out. Feeds are the configured feeds, for names and labels.
 	News  NewsReader
 	Feeds []news.Feed
+	// MaxAge is how long each job may go without a success before the
+	// status page calls it overdue; a registered job with a limit that
+	// never ran is listed, overdue. A job without one is never overdue.
+	MaxAge map[string]time.Duration
 }
 
 // contentSecurityPolicy keeps every fetch the page makes on this origin
@@ -89,12 +93,17 @@ type Status struct {
 
 // JobStatus is one job on the status page.
 type JobStatus struct {
-	Name       string    `json:"name"`
-	LastRun    time.Time `json:"lastRun"`
+	Name string `json:"name"`
+	// LastRun is zero for a job that never ran.
+	LastRun    time.Time `json:"lastRun,omitzero"`
 	LastOK     time.Time `json:"lastOk,omitzero"`
 	OK         bool      `json:"ok"`
 	DurationMs int64     `json:"durationMs"`
 	Message    string    `json:"message,omitempty"`
+	// Overdue is a job whose last success is older than its limit, or that
+	// never succeeded; MaxAgeMinutes is that limit.
+	Overdue       bool `json:"overdue"`
+	MaxAgeMinutes int  `json:"maxAgeMinutes,omitempty"`
 }
 
 // New returns the app's handler: the API, the health check and the embedded
@@ -164,17 +173,41 @@ func statusHandler(o Options) http.HandlerFunc {
 			zerolog.Ctx(r.Context()).Warn().Err(err).Msg("Could not read job history")
 			st.JobsError = "the job history could not be read"
 		}
+		now := o.Now()
+		seen := map[string]bool{}
 		for _, j := range jobs {
 			if o.Jobs != nil && !slices.Contains(o.Jobs, j.Name) {
 				continue // a job since removed; its last run is history, not status
 			}
-			st.Jobs = append(st.Jobs, JobStatus{
+			seen[j.Name] = true
+			st.Jobs = append(st.Jobs, withAge(JobStatus{
 				Name: j.Name, LastRun: j.LastRun, LastOK: j.LastOK, OK: j.OK,
 				DurationMs: j.LastDuration.Milliseconds(), Message: j.Message,
-			})
+			}, o.MaxAge, now))
 		}
+		// A job that never ran is news only if it should have: when the
+		// history could not be read, nothing is known either way.
+		if err == nil {
+			for _, name := range o.Jobs {
+				if _, limited := o.MaxAge[name]; limited && !seen[name] {
+					st.Jobs = append(st.Jobs, withAge(JobStatus{Name: name}, o.MaxAge, now))
+				}
+			}
+		}
+		slices.SortFunc(st.Jobs, func(a, b JobStatus) int { return strings.Compare(a.Name, b.Name) })
 		writeJSON(w, st)
 	}
+}
+
+// withAge sets a job's limit and whether it is past it.
+func withAge(j JobStatus, maxAge map[string]time.Duration, now time.Time) JobStatus {
+	limit, ok := maxAge[j.Name]
+	if !ok || limit <= 0 {
+		return j
+	}
+	j.MaxAgeMinutes = int(limit.Minutes())
+	j.Overdue = j.LastOK.IsZero() || now.Sub(j.LastOK) > limit
+	return j
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

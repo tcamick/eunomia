@@ -2,11 +2,15 @@
 
 export interface JobStatus {
   name: string;
-  lastRun: string;
+  /** Absent for a job that never ran. */
+  lastRun?: string;
   lastOk?: string;
   ok: boolean;
   durationMs: number;
   message?: string;
+  /** No success within maxAgeMinutes, or never. */
+  overdue: boolean;
+  maxAgeMinutes?: number;
 }
 
 export interface Status {

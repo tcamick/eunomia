@@ -13,6 +13,15 @@
   load.get('/api/status');
   onDestroy(() => load.stop());
   const now = $derived(load.data ? new Date(load.data.now) : new Date());
+
+  // A job's limit, in words: "90 minutes", "26 hours", "7 days".
+  function age(minutes: number): string {
+    const unit = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+    if (minutes < 180) return unit(minutes, 'minute');
+    const hours = Math.round(minutes / 60);
+    if (hours < 72) return unit(hours, 'hour');
+    return unit(Math.round(hours / 24), 'day');
+  }
 </script>
 
 <h1 tabindex="-1">Status</h1>
@@ -46,16 +55,23 @@
           {#each status.jobs as job (job.name)}
             <tr>
               <th scope="row"><code>{job.name}</code></th>
-              <td data-label="Last run"><time datetime={job.lastRun}>{relativeTime(job.lastRun, now)}</time></td>
+              <td data-label="Last run">
+                {#if job.lastRun}<time datetime={job.lastRun}>{relativeTime(job.lastRun, now)}</time>{:else}never{/if}
+              </td>
               <td data-label="Result">
-                {#if job.ok}
+                {#if !job.lastRun}
+                  <span class="bad">✗ Never ran</span>
+                {:else if job.ok}
                   <span class="ok">✓ Succeeded</span>
                 {:else}
                   <span class="bad">✗ Failed</span>
                   {#if job.message}<span class="message">{job.message}</span>{/if}
                 {/if}
+                {#if job.overdue && job.maxAgeMinutes}
+                  <span class="bad overdue">Overdue: no success in {age(job.maxAgeMinutes)}</span>
+                {/if}
               </td>
-              <td data-label="Took">{duration(job.durationMs)}</td>
+              <td data-label="Took">{job.lastRun ? duration(job.durationMs) : '—'}</td>
               <td data-label="Last success">
                 {#if job.lastOk}
                   <time datetime={job.lastOk}>{localDateTime(job.lastOk)}</time>
@@ -113,6 +129,11 @@
   }
   .bad {
     color: var(--bad);
+  }
+  .overdue {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
   }
   /* A failure message can hold a URL or a long token with no spaces;
      "anywhere" lets it break, and lowers the cell's minimum width, so the
