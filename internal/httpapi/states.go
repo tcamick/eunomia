@@ -31,8 +31,13 @@ type StateResponse struct {
 	Vacancies []StateVacancy        `json:"vacancies"`
 	// DistrictMap is the Congress whose district lines the state's map
 	// draws; 0 when it has none (DC and the territories).
-	DistrictMap int          `json:"districtMap,omitempty"`
-	Sources     []SourceLine `json:"sources"`
+	DistrictMap int `json:"districtMap,omitempty"`
+	// HouseCongress is the Congress the sitting House members belong to.
+	// When it is not DistrictMap's (from 2027-01-03 until gate G2), the
+	// members do not sit for the drawn lines, and the page must not put
+	// them on those shapes.
+	HouseCongress int          `json:"houseCongress,omitempty"`
+	Sources       []SourceLine `json:"sources"`
 }
 
 func (a *api) statesHandler(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +103,7 @@ func (a *api) stateHandler(w http.ResponseWriter, r *http.Request) {
 		CheckedAt: geo.ApportionmentChecked})
 	if j.Voting() {
 		resp.DistrictMap = geo.DistrictShapesCongress
+		resp.HouseCongress = congress.SittingHouse(ms)
 		resp.Sources = append(resp.Sources, SourceLine{Name: districtShapesName, URL: geo.DistrictShapesSource,
 			CheckedAt: geo.DistrictShapesChecked})
 	}

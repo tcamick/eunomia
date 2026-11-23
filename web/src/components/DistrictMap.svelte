@@ -10,7 +10,15 @@
   // state's page. Each district is filled with its member's party colour,
   // and carries the party's shape as a marker, so party is never colour
   // alone; a vacant district is hatched with the vacant ring.
-  let { code, house, congress }: { code: string; house: Member[]; congress: number } = $props();
+  //
+  // congress is the Congress whose lines the shapes are; sitting is the
+  // Congress the members belong to. When they differ (from 2027-01-03 until
+  // the Census publishes the new lines; roadmap, gate G2), a member does not
+  // sit for the shape with their number, so the lines are drawn plain, with
+  // no member, colour or link, and the list is the way to the seats.
+  let { code, house, congress, sitting }: { code: string; house: Member[]; congress: number; sitting: number } =
+    $props();
+  const linesOnly = $derived(sitting !== congress);
 
   const modules = import.meta.glob<{ default: DistrictMap }>('../lib/geo/districts/*.ts');
 
@@ -47,6 +55,19 @@
     <p class="muted">The district map could not be loaded; the list below has every seat.</p>
   {:else if !map}
     <div class="placeholder" aria-busy="true"></div>
+  {:else if linesOnly}
+    <svg viewBox={map.viewBox} role="img" aria-labelledby="districts-caption">
+      {#each map.districts as d (d.n)}
+        <path d={d.d} class="plain" />
+      {/each}
+      {#if !dense}
+        <g class="marks" aria-hidden="true">
+          {#each map.districts as d (d.n)}
+            <text x={d.label[0]} y={d.label[1]} text-anchor="middle">{d.n || 'AL'}</text>
+          {/each}
+        </g>
+      {/if}
+    </svg>
   {:else}
     <svg viewBox={map.viewBox} role="group" aria-labelledby="districts-caption">
       {#each map.districts as d (d.n)}
@@ -75,7 +96,12 @@
     </svg>
   {/if}
   <figcaption id="districts-caption">
-    Districts of the {ordinal(congress)} Congress{#if map && dense}; select a district, or use the list{/if}.
+    {#if linesOnly}
+      District lines of the {ordinal(congress)} Congress. The members listed sit in the {ordinal(sitting)} Congress, whose
+      lines are not yet published, so they are not drawn on these; the list has every seat.
+    {:else}
+      Districts of the {ordinal(congress)} Congress{#if map && dense}; select a district, or use the list{/if}.
+    {/if}
   </figcaption>
 </figure>
 
@@ -98,6 +124,10 @@
     stroke: var(--bg);
     stroke-width: 1;
     stroke-linejoin: round;
+  }
+  .plain {
+    fill: var(--sunk);
+    stroke: var(--muted);
   }
   a:hover path {
     stroke: var(--fg);

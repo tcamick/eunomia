@@ -76,6 +76,29 @@ func TestState_APageHasItsMembersVacanciesAndSources(t *testing.T) {
 	assert.Contains(t, names, districtShapesName, "the Census Bureau is credited for the district map")
 }
 
+func TestState_SaysWhenTheMembersAreNotTheDrawnLinesCongress(t *testing.T) {
+	t.Parallel()
+	// Review B2: from 2027-01-03 the roster lists the 120th's members while
+	// the shapes are the 119th's lines, until gate G2.
+	tests := map[string]struct {
+		start string
+		want  int
+	}{
+		"the 119th's members on the 119th's lines": {start: "2025-01-03", want: 119},
+		"the 120th's members, the 119th's lines":   {start: "2027-01-03", want: 120},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			r := ohio()
+			r.sittings[2].Start = tc.start
+			got := decode[StateResponse](t, get(t, newRosterHandler(t, r, "", nil, nil), "/api/states/OH"))
+			assert.Equal(t, geo.DistrictShapesCongress, got.DistrictMap, "the drawn lines' Congress")
+			assert.Equal(t, tc.want, got.HouseCongress, "the sitting members' Congress")
+		})
+	}
+}
+
 func TestState_DCHasItsDelegateAndNoDistrictMap(t *testing.T) {
 	t.Parallel()
 	got := decode[StateResponse](t, get(t, newRosterHandler(t, ohio(), "", nil, nil), "/api/states/DC"))

@@ -10,7 +10,6 @@
   import { calendarDate, ordinal } from '../lib/format';
   import { Load } from '../lib/load.svelte';
   import type { PageProps } from '../lib/page';
-  import { partyLabel } from '../lib/party';
 
   let { params }: Partial<PageProps> = $props();
 
@@ -110,7 +109,7 @@
     {/if}
     <div class="house" class:with-map={!!d.districtMap}>
       {#if d.districtMap}
-        <DistrictMap code={d.state.code} house={d.house} congress={d.districtMap} />
+        <DistrictMap code={d.state.code} house={d.house} congress={d.districtMap} sitting={d.houseCongress ?? d.districtMap} />
       {/if}
       <ol class="seats">
         {#each houseRows as r (r.district + (r.member?.id ?? 'vacant'))}

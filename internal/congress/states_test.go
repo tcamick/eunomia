@@ -129,6 +129,52 @@ func TestStates_TotalsEqualTheChambers(t *testing.T) {
 	assert.Equal(t, 0, houseVacant, "no House vacancy")
 }
 
+func TestNumber_IsTheCongressSittingOnADate(t *testing.T) {
+	t.Parallel()
+	// A Congress runs from noon on January 3 of an odd year to January 3
+	// two years on (20th Amendment); the 119th began in 2025.
+	tests := map[string]struct {
+		date string
+		want int
+	}{
+		"the 119th's first day":       {date: "2025-01-03", want: 119},
+		"the day before it":           {date: "2025-01-02", want: 118},
+		"late in its second year":     {date: "2026-11-23", want: 119},
+		"the 120th's first day":       {date: "2027-01-03", want: 120},
+		"an even year's first months": {date: "2024-06-01", want: 118},
+		"not a date":                  {date: "soon", want: 0},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, Number(tc.date), "the Congress on %s", tc.date)
+		})
+	}
+}
+
+func TestSittingHouse_IsTheCongressOfTheNewestHouseTerm(t *testing.T) {
+	t.Parallel()
+	member := func(body, start string) store.Sitting { return store.Sitting{Body: body, State: "OH", Start: start} }
+	tests := map[string]struct {
+		members []store.Sitting
+		want    int
+	}{
+		"the 119th, with a special election's winner": {
+			members: []store.Sitting{member(House, "2025-01-03"), member(House, "2025-09-30")}, want: 119},
+		"the 120th once the roster lists its members": {
+			members: []store.Sitting{member(House, "2025-01-03"), member(House, "2027-01-03")}, want: 120},
+		"a senator's term says nothing about the House": {
+			members: []store.Sitting{member(House, "2025-01-03"), member(Senate, "2027-01-03")}, want: 119},
+		"no House member": {members: nil, want: 0},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, SittingHouse(tc.members), "the sitting House's Congress")
+		})
+	}
+}
+
 func TestStates_OneSummaryPerJurisdictionInNameOrder(t *testing.T) {
 	t.Parallel()
 	ss := States(nil)

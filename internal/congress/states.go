@@ -2,6 +2,7 @@ package congress
 
 import (
 	"sort"
+	"time"
 
 	"github.com/tcamick/eunomia/internal/geo"
 	"github.com/tcamick/eunomia/internal/store"
@@ -90,4 +91,33 @@ func delegation(seats int, held map[[2]string]int) Delegation {
 		d.Lead = d.Parties[0].Code
 	}
 	return d
+}
+
+// Number is the Congress sitting on a YYYY-MM-DD date: each runs from
+// January 3 of an odd year to January 3 two years on, the 1st from 1789.
+// It returns 0 for a value that is not a date.
+func Number(date string) int {
+	t, err := time.Parse(time.DateOnly, date)
+	if err != nil {
+		return 0
+	}
+	n := (t.Year()-1789)/2 + 1
+	if t.Year()%2 == 1 && t.Before(time.Date(t.Year(), time.January, 3, 0, 0, 0, 0, time.UTC)) {
+		n--
+	}
+	return n
+}
+
+// SittingHouse is the Congress the sitting House members belong to, from
+// the newest House term's start: the roster's word, not the clock's, so a
+// change of Congress shows when the source lists it (PRD §3). It is 0 with
+// no House member.
+func SittingHouse(members []store.Sitting) int {
+	newest := ""
+	for _, m := range members {
+		if m.Body == House && m.Start > newest {
+			newest = m.Start
+		}
+	}
+	return Number(newest)
 }

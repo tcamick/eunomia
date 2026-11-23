@@ -245,6 +245,8 @@ export interface StateResponse {
   vacancies: StateVacancy[];
   /** The Congress whose district lines the map draws; absent without a map. */
   districtMap?: number;
+  /** The Congress the sitting House members belong to. */
+  houseCongress?: number;
   sources: SourceLine[];
 }
 
