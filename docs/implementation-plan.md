@@ -73,7 +73,7 @@ PRD §10 is the model. Tables arrive with the phase that fills them, one migrati
 | E0 | A private GitHub repository `tcamick/eunomia` | github.com (`gh` is not installed on neptune) |
 | E0 | Flux's read-only deploy key and its Secret | the three commands in beholder's README, "Wiring", with `eunomia` for `beholder`; needs `sudo` |
 | E0 | A go-ahead for one change in the Plutus repository | `deploy/k8s/clusters/neptune/eunomia.yaml`, its line in that directory's `kustomization.yaml`, and a grant so `claude-ops` may read and nudge the `eunomia` Flux objects |
-| E2 | A backup directory on seabass | `sudo install -d -o 65532 -g 65532 /srv/seabass/eunomia-backups` |
+| E2 | A backup directory on seabass, with a marker the job checks for | `mountpoint -q /srv/seabass && sudo install -d -o 65532 -g 65532 -m 0770 /srv/seabass/eunomia-backups && sudo install -o 65532 -g 65532 -m 0640 /dev/null /srv/seabass/eunomia-backups/.eunomia-backup-disk` (done 2026-11-23) |
 | E3a | The home districts and local officials | the owner looks up their own address on the official sites and gives the districts; the address itself is never entered here |
 | E4b | An api.data.gov key, stored in Secret Manager, and `tofu apply` for its grant | signing up needs the owner's email, so the owner does it |
 | E7 | How the brief is paid for and how it is sent | decided in ADR 0010 |
@@ -115,7 +115,7 @@ Before the branch: rename the unborn `master` to `main`, and make the root commi
 - **Tests:** every state and district in the roster has a shape, and the reverse (a test over the generated modules); the summary's totals equal the roster's; colour-mode logic for a split delegation, an all-one-party delegation, a vacancy and an at-large state. By hand: Tab order, focus ring, 360 px, both themes, 200% zoom.
 
 ### E2 — News (2 sessions)
-- **`config/sources.yaml`:** each feed's id, name, URL, and a short neutral label of what kind of outlet it is. NPR Politics, NPR News, Democracy Now, CalMatters, The Oaklandside.
+- **`config/sources.yaml`:** each feed's id, name, URL, and a short neutral label of what kind of outlet it is. NPR Politics, NPR News and Democracy Now; CalMatters and The Oaklandside once their terms for feeds are clear (owner, 2026-11-23; NPR's terms allow a personal app to show its feeds, CalMatters' bar automated access without authorisation, The Oaklandside's were not found). Each label is from the outlet's own description, with its source and checked date.
 - **`news` job:** conditional fetch; parse RSS; keep guid, link, title, publication time and a plain-text summary cut to a fixed length. `content:encoded` is never read into a struct, so it cannot be stored. Dedupe by feed and guid, and across feeds by link.
 - **`tagging`** (ADR 0008): a matcher built from the roster. It matches a full name; a title with a surname ("Sen. X", "Rep. X", "Gov. X") when that surname is unique for that title, or when the text also names the member's state; a state by its full name, with a list of ambiguous names (Washington, Georgia, New York as a city) that need more context. Everything else is no tag. Mentions are recomputed for recent stories when the roster changes.
 - **API and pages:** the feed (phone first) with filters by source, state and person, read and saved marks kept on the server; stories on a person's page and a state's page.

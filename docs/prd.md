@@ -85,7 +85,7 @@ One page per person, whatever office they hold:
 - Structured data on candidates is good for federal races and thin below that (§7). State and local races start as a curated file for the owner's own ballot and the governors' races.
 
 ### 6.6 News feed
-- Sources at first: NPR Politics, NPR News and Democracy Now, read from their RSS feeds. *(Proposed)* CalMatters and The Oaklandside for California and Oakland.
+- Sources at first: NPR Politics, NPR News and Democracy Now, read from their RSS feeds. *(Proposed)* CalMatters and The Oaklandside for California and Oakland, *once their terms for feeds are clear (owner, 2026-11-23)*.
 - Each story shows the source, time, headline, the publisher's summary and a link. The source is always labelled, because the feed mixes a public broadcaster with an openly left publication.
 - **Tagging:** a story is linked to the people, states, bills and terms it names, by matching against the roster. Matching is deterministic first (full names, "Sen. Surname" with a state check); a miss is better than a wrong link. A person's page and a state's page show their stories.
 - Filters: source, mine (my representatives and state), state, person, topic. Read and saved marks.

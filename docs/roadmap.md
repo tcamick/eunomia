@@ -54,7 +54,7 @@ The empty app, built, deployed and monitored the way every later phase will be.
 *What are my sources saying, and about whom?*
 - **Needs from the owner:** the backup directory on seabass.
 - **Done when:**
-  - The feed shows stories from all five sources, each labelled, within an hour or so of publication.
+  - The feed shows stories from all three sources (NPR Politics, NPR News, Democracy Now), each labelled, within an hour or so of publication. *(Amended 2026-11-23, owner: CalMatters and The Oaklandside are added once their terms for feeds are clear.)*
   - A story that names a senator appears on that senator's page and their state's page.
   - Marking a story read on one device shows it read on another.
   - No article body is in the database (a query in the acceptance file shows the longest stored summary).

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Made by hand for the parser's tests: each item breaks one rule. -->
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel>
+<title>Hostile fixture</title>
+<link>https://news.example/</link>
+<item>
+  <title>A link that runs script</title>
+  <link>javascript:alert(1)</link>
+  <guid isPermaLink="false">h-1</guid>
+  <pubDate>Mon, 23 Nov 2026 08:45:45 -0500</pubDate>
+  <description>Plain summary.</description>
+</item>
+<item>
+  <title>An http link on another site</title>
+  <link>http://elsewhere.example/story</link>
+  <guid isPermaLink="false">h-2</guid>
+  <pubDate>Mon, 23 Nov 2026 08:45:45 -0500</pubDate>
+  <description>Plain summary.</description>
+</item>
+<item>
+  <title>An http link on the source's own site</title>
+  <link>http://news.example/2026/11/23/story</link>
+  <guid isPermaLink="false">h-3</guid>
+  <pubDate>Mon, 23 Nov 2026 08:45:45 -0500</pubDate>
+  <description>Plain summary.</description>
+</item>
+<item>
+  <title>HTML &amp; script in the summary</title>
+  <link>https://news.example/html</link>
+  <guid isPermaLink="false">h-4</guid>
+  <pubDate>Mon, 23 Nov 2026 08:45:45 -0500</pubDate>
+  <description><![CDATA[<p>First <b>bold</b> line &amp; more.</p><script>alert("x")</script><style>p{color:red}</style><img src="https://news.example/i.jpg" onerror="alert(1)"><p>Second&nbsp;line.</p>]]></description>
+  <content:encoded><![CDATA[<p>BODY-MARKER the whole article text, which must never be stored.</p>]]></content:encoded>
+</item>
+<item>
+  <title>A summary longer than the limit</title>
+  <link>https://news.example/long</link>
+  <guid isPermaLink="false">h-5</guid>
+  <pubDate>Mon, 23 Nov 2026 08:45:45 -0500</pubDate>
+  <description>Word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word.</description>
+</item>
+<item>
+  <title></title>
+  <link>https://news.example/untitled</link>
+  <guid isPermaLink="false">h-6</guid>
+  <description>An item with no headline is skipped.</description>
+</item>
+<item>
+  <title>No date and no guid</title>
+  <link>https://news.example/undated</link>
+  <description>The link stands in for the guid; the time is unknown.</description>
+</item>
+<item>
+  <title>A summary longer than the limit</title>
+  <link>https://news.example/long</link>
+  <guid isPermaLink="false">h-5</guid>
+  <description>The same guid twice in one feed is one story.</description>
+</item>
+</channel>
+</rss>
