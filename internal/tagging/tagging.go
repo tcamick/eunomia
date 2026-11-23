@@ -206,20 +206,35 @@ func startsWord(s, word string) bool {
 }
 
 // afterTitle reports whether text has one of the titles, then the surname
-// as a whole word: "Sen. Scott", "Senator Scott's".
+// as a whole word: "Sen. Scott", "Senator Scott's". A title that is not a
+// sitting member's ("state Sen. Scott", "former Rep. Scott", "ex-Sen.
+// Scott") does not count: a miss before a wrong link (ADR 0008).
 func afterTitle(text string, words []string, surname string) bool {
 	for _, w := range words {
-		if containsWord(text, w+" "+surname) {
-			return true
+		for _, at := range wordIndexes(text, w+" "+surname) {
+			if !notSitting(text[:at]) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-// containsWord reports whether text has needle with no letter or digit
-// right before or after it.
-func containsWord(text, needle string) bool {
-	return len(wordIndexes(text, needle)) > 0
+// notSitting reports whether the text just before a title makes it someone
+// other than a sitting member of Congress.
+func notSitting(before string) bool {
+	if strings.HasSuffix(strings.ToLower(before), "ex-") {
+		return true
+	}
+	fields := strings.Fields(before)
+	if len(fields) == 0 {
+		return false
+	}
+	switch strings.ToLower(fields[len(fields)-1]) {
+	case "state", "former":
+		return true
+	}
+	return false
 }
 
 // wordIndexes are the byte offsets where needle occurs in text as whole

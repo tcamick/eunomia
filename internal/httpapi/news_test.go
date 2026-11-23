@@ -91,6 +91,15 @@ func TestStories_LabelsEachStoryAndNamesItsMentions(t *testing.T) {
 	assert.Zero(t, got.Next, "no more pages")
 }
 
+func TestStories_AStoryFromAFeedNoLongerFollowedIsStillLabelled(t *testing.T) {
+	t.Parallel()
+	rows := []store.StoryRow{{ID: 9, Feed: "calmatters", Title: "Old", Source: "https://calmatters.org/feed/", FetchedAt: "2026-11-01T00:00:00Z"}}
+	got := decode[StoriesResponse](t, get(t, newsHandler(t, &fakeNews{rows: rows}), "/api/stories"))
+	require.Len(t, got.Stories, 1, "the story is listed")
+	assert.Equal(t, "calmatters.org", got.Stories[0].FeedName, "named by where it came from")
+	assert.Equal(t, "No longer followed", got.Stories[0].Label, "and said to be from a feed since dropped")
+}
+
 func TestStories_PassesItsFiltersAndPages(t *testing.T) {
 	t.Parallel()
 	f := &fakeNews{rows: threeStories()}

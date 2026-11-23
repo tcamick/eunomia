@@ -43,7 +43,7 @@ func TestAddStories_OneStoryInTwoFeedsIsOneStoryListedUnderBoth(t *testing.T) {
 	ctx := context.Background()
 	_, err := s.AddStories(ctx, "politics", politicsFeed, t0, []NewStory{story("p-1", "https://news.example/shared", "Shared", t0)})
 	require.NoError(t, err, "adding from the first feed")
-	added, err := s.AddStories(ctx, "news", newsFeed, t0, []NewStory{story("n-1", "https://news.example/shared", "Shared", t0)})
+	added, err := s.AddStories(ctx, "news", newsFeed, t0.Add(time.Hour), []NewStory{story("n-1", "https://news.example/shared", "Shared", t0)})
 	require.NoError(t, err, "adding from the second feed")
 	assert.Empty(t, added, "the same link is not a new story")
 	rows, err := s.Stories(ctx, StoryFilter{})
@@ -51,6 +51,11 @@ func TestAddStories_OneStoryInTwoFeedsIsOneStoryListedUnderBoth(t *testing.T) {
 	require.Len(t, rows, 1, "one story")
 	assert.Equal(t, []string{"news", "politics"}, rows[0].Feeds, "listed under both feeds")
 	assert.Equal(t, "politics", rows[0].Feed, "labelled by the feed it was first seen in")
+	var src, at string
+	require.NoError(t, s.db.QueryRowContext(ctx, `SELECT source, fetched_at FROM story_feeds WHERE feed = 'news'`).Scan(&src, &at),
+		"reading the second feed's row")
+	assert.Equal(t, newsFeed, src, "each feed's row has that feed as its source")
+	assert.Equal(t, t0.Add(time.Hour).UTC().Format(time.RFC3339), at, "and when that feed carried it")
 }
 
 func TestAddStories_TheStoreRefusesAnArticleBody(t *testing.T) {

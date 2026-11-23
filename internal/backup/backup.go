@@ -70,10 +70,10 @@ const (
 	DefaultWeekly = 8
 )
 
-// Copied lists what is copied from the data directory beside the database,
+// copied lists what is copied from the data directory beside the database,
 // when present: the mirrored portraits (refetchable, but slowly, and the
 // source may withdraw one).
-var Copied = []string{"portraits"}
+func copied() []string { return []string{"portraits"} }
 
 // Job is the backup job.
 type Job struct {
@@ -175,7 +175,7 @@ func (j *Job) write(ctx context.Context, dir string, now time.Time) (Manifest, e
 	if err := count(filepath.Join(dir, databaseName), &m); err != nil {
 		return m, err
 	}
-	for _, name := range Copied {
+	for _, name := range copied() {
 		src := filepath.Join(j.DataDir, name)
 		if _, err := os.Stat(src); errors.Is(err, fs.ErrNotExist) {
 			continue

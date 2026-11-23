@@ -48,7 +48,7 @@ func TestVerify_CountsEveryTableARestoreMustHave(t *testing.T) {
 	t.Parallel()
 	counts, err := open(t).Verify(context.Background())
 	require.NoError(t, err, "verifying an empty store")
-	for _, table := range VerifiedTables {
+	for _, table := range VerifiedTables() {
 		v, ok := counts[table]
 		assert.True(t, ok, "%s is counted", table)
 		assert.Zero(t, v, "%s is empty", table)

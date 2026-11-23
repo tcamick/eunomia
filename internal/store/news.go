@@ -62,7 +62,8 @@ func addStory(ctx context.Context, tx *sql.Tx, feed, source, fetched string, it 
 	if it.URL != "" {
 		err = tx.QueryRowContext(ctx, `SELECT id FROM stories WHERE url = ?`, it.URL).Scan(&id)
 		if err == nil {
-			_, err = tx.ExecContext(ctx, `INSERT OR IGNORE INTO story_feeds (story, feed) VALUES (?, ?)`, id, feed)
+			_, err = tx.ExecContext(ctx,
+				`INSERT OR IGNORE INTO story_feeds (story, feed, source, fetched_at) VALUES (?, ?, ?, ?)`, id, feed, source, fetched)
 			return id, false, err
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -83,7 +84,7 @@ func addStory(ctx context.Context, tx *sql.Tx, feed, source, fetched string, it 
 	if id, err = res.LastInsertId(); err != nil {
 		return 0, false, err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO story_feeds (story, feed) VALUES (?, ?)`, id, feed)
+	_, err = tx.ExecContext(ctx, `INSERT INTO story_feeds (story, feed, source, fetched_at) VALUES (?, ?, ?, ?)`, id, feed, source, fetched)
 	return id, true, err
 }
 

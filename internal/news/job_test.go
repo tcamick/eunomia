@@ -158,3 +158,121 @@ func TestJob_TagsStoriesWithTheMembersAndStatesTheyName(t *testing.T) {
 	require.NoError(t, err, "listing Washington's stories")
 	assert.Empty(t, rows, `"Washington" alone tags no state`)
 }
+
+// allMentions is every stored story's mentions, by story id.
+func allMentions(t *testing.T, s *store.Store) map[int64][]store.StoryMention {
+	t.Helper()
+	rows, err := s.Stories(context.Background(), store.StoryFilter{Limit: 100})
+	require.NoError(t, err, "listing stories")
+	out := map[int64][]store.StoryMention{}
+	for _, r := range rows {
+		out[r.ID] = r.Mentions
+	}
+	return out
+}
+
+func seedAnn(t *testing.T, s *store.Store) {
+	t.Helper()
+	district := 3
+	require.NoError(t, s.ApplyRoster(context.Background(), store.RosterPlan{At: t0, Source: "https://example.org/",
+		People: []store.Person{{ID: "A000001", Bioguide: "A000001", First: "Ann", Last: "Able", Display: "Ann Able", InCongress: true}},
+		Terms: []store.Term{{Person: "A000001", Office: "house/OH/3", Body: "house", State: "OH", District: &district,
+			Start: "2025-01-03", End: "2027-01-03", Party: "Democratic", Current: true}},
+	}), "seeding a member")
+}
+
+func oneItem(guid, title, date string) []byte {
+	return []byte(`<rss><channel><item><title>` + title + `</title><link>https://www.npr.org/` + guid +
+		`</link><guid>` + guid + `</guid><pubDate>` + date + `</pubDate></item></channel></rss>`)
+}
+
+// A member who joins the roster is found in the stories of the last
+// TagWindow that name them, and not in older ones (ADR 0008).
+func TestJob_RetagsTheWindowWhenTheRosterChanges(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	ctx := context.Background()
+	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
+	feeds := &fakeFeeds{bodies: map[string][]byte{}, etags: map[string]string{}, fail: map[string]error{}}
+	now := t0
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return now }, nil)
+	require.NoError(t, err, "building the job")
+
+	feeds.bodies[feed.URL] = oneItem("old", "Ann Able speaks", "Fri, 09 Oct 2026 12:00:00 +0000") // 45 days before t0
+	require.NoError(t, j.Run(ctx), "storing an old story")
+	feeds.bodies[feed.URL] = oneItem("new", "Ann Able speaks again", "Mon, 23 Nov 2026 20:00:00 +0000")
+	require.NoError(t, j.Run(ctx), "storing a recent story")
+	for id, m := range allMentions(t, s) {
+		assert.Empty(t, m, "story %d: no member is on the roster yet", id)
+	}
+
+	seedAnn(t, s)
+	now = t0.Add(time.Hour)
+	require.NoError(t, j.Run(ctx), "the run after the roster changed")
+
+	rows, err := s.Stories(ctx, store.StoryFilter{Person: "A000001"})
+	require.NoError(t, err, "listing the member's stories")
+	require.Len(t, rows, 1, "only the story inside the window is tagged")
+	assert.Equal(t, "Ann Able speaks again", rows[0].Title, "the recent one")
+}
+
+func TestJob_ASecondRunChangesNoMention(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	seedAnn(t, s)
+	ctx := context.Background()
+	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
+	feeds := &fakeFeeds{bodies: map[string][]byte{feed.URL: oneItem("a", "Ann Able in Ohio", "Mon, 23 Nov 2026 20:00:00 +0000")},
+		etags: map[string]string{}, fail: map[string]error{}}
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return t0 }, nil)
+	require.NoError(t, err, "building the job")
+	require.NoError(t, j.Run(ctx), "the first run")
+	before := allMentions(t, s)
+	require.NotEmpty(t, before, "the story is tagged")
+
+	tagged, err := j.retag(ctx)
+	require.NoError(t, err, "retagging again")
+	assert.Zero(t, tagged, "no mention row is written")
+	require.NoError(t, j.Run(ctx), "a second run")
+	assert.Equal(t, before, allMentions(t, s), "the mentions are as they were")
+}
+
+func TestJob_AFeedWithNoItemsFails(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
+	feeds := &fakeFeeds{bodies: map[string][]byte{feed.URL: []byte(`<rss><channel><title>NPR</title></channel></rss>`)},
+		etags: map[string]string{}, fail: map[string]error{}}
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return t0 }, nil)
+	require.NoError(t, err, "building the job")
+
+	err = j.Run(context.Background())
+
+	require.ErrorIs(t, err, ErrNoItems, "an empty feed is a failure")
+	assert.Contains(t, err.Error(), "feed npr-politics", "naming the feed")
+	_, ok, err := s.SourceState(context.Background(), feed.ID)
+	require.NoError(t, err, "reading the feed's check")
+	assert.False(t, ok, "and is not recorded as checked")
+}
+
+func TestJob_ADateAheadOfNowIsStoredAsUnknown(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	feed := Feed{ID: "npr-politics", URL: "https://feeds.example/f.xml", Site: "www.npr.org"}
+	feeds := &fakeFeeds{bodies: map[string][]byte{feed.URL: []byte(`<rss><channel>
+		<item><title>From the future</title><link>https://www.npr.org/f</link><guid>f</guid><pubDate>Thu, 01 Jan 2099 00:00:00 +0000</pubDate></item>
+		<item><title>Tomorrow by a zone</title><link>https://www.npr.org/z</link><guid>z</guid><pubDate>Tue, 24 Nov 2026 08:00:00 +0000</pubDate></item>
+		</channel></rss>`)}, etags: map[string]string{}, fail: map[string]error{}}
+	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return t0 }, nil)
+	require.NoError(t, err, "building the job")
+	require.NoError(t, j.Run(context.Background()), "running the job")
+
+	rows, err := s.Stories(context.Background(), store.StoryFilter{Limit: 10})
+	require.NoError(t, err, "listing stories")
+	byTitle := map[string]store.StoryRow{}
+	for _, r := range rows {
+		byTitle[r.Title] = r
+	}
+	assert.Empty(t, byTitle["From the future"].Published, "a date years ahead is unknown")
+	assert.Equal(t, "2026-11-24T08:00:00Z", byTitle["Tomorrow by a zone"].Published, "ten hours ahead is within a day: kept")
+}

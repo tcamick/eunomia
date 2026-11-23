@@ -22,6 +22,13 @@ const JobName = "news"
 // change in the roster reaches recent stories (ADR 0008).
 const TagWindow = 30 * 24 * time.Hour
 
+// ErrNoItems is a feed that answered with no usable item.
+var ErrNoItems = errors.New("the feed has no usable items")
+
+// maxAhead is how far past the time of the fetch a publication date may
+// be: a day covers any zone or clock skew.
+const maxAhead = 24 * time.Hour
+
 // Store is what the news job needs of the store; *store.Store implements it.
 type Store interface {
 	SourceState(ctx context.Context, source string) (store.SourceState, bool, error)
@@ -72,16 +79,16 @@ func NewJob(feeds []Feed, get Getter, st Store, now func() time.Time, reg promet
 // Name is the job's registered name.
 func (*Job) Name() string { return JobName }
 
-// Run reads every feed; one that fails is reported and the others still
-// run (go-conventions, Fetching). Then it retags the recent stories.
+// Run reads every feed; one that fails is returned, once, naming its feed,
+// and the others still run (go-conventions, Fetching). Then it retags the
+// recent stories.
 func (j *Job) Run(ctx context.Context) error {
 	log := zerolog.Ctx(ctx)
 	var errs []error
 	for _, f := range j.feeds {
 		n, err := j.readFeed(ctx, f)
 		if err != nil {
-			log.Warn().Err(err).Str("feed", f.ID).Msg("Could not read a feed")
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("feed %s: %w", f.ID, err))
 			continue
 		}
 		j.added.WithLabelValues(f.ID).Add(float64(n))
@@ -116,10 +123,21 @@ func (j *Job) readFeed(ctx context.Context, f Feed) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// A feed that answers with nothing usable has changed its format or
+	// broken; recording it as checked would keep the job green for good.
+	if len(items) == 0 {
+		return 0, ErrNoItems
+	}
 	stories := make([]store.NewStory, 0, len(items))
 	for _, it := range items {
+		published := it.Published
+		// A date ahead of now is a mistake (or a story pinning itself to
+		// the top): stored as unknown, never clamped to a made-up date.
+		if published.After(at.Add(maxAhead)) {
+			published = time.Time{}
+		}
 		stories = append(stories, store.NewStory{GUID: it.GUID, URL: it.URL, Title: it.Title, Summary: it.Summary,
-			Published: it.Published})
+			Published: published})
 	}
 	added, err := j.st.AddStories(ctx, f.ID, f.URL, at, stories)
 	if err != nil {

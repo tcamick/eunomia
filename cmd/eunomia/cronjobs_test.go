@@ -33,7 +33,8 @@ type cronJob struct {
 }
 
 // scheduled returns the job each CronJob under k8s/app runs: the last
-// argument of its container.
+// argument of its container. It reads the repository's own manifests, read
+// only, outside testdata/: the point is to check the files that deploy.
 func scheduled(t *testing.T) []string {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join("..", "..", "k8s", "app", "*.yaml"))
@@ -71,16 +72,17 @@ func TestJobs_EachHasACronJobAndALimit(t *testing.T) {
 	js, err := buildJobs(deps{})
 	require.NoError(t, err, "building the jobs")
 	cron := scheduled(t)
+	limits := jobMaxAge()
 	names := make([]string, 0, len(js))
 	for _, j := range js {
 		names = append(names, j.Name())
 		assert.Contains(t, cron, j.Name(), "%s has a CronJob in k8s/app", j.Name())
-		assert.Contains(t, jobMaxAge, j.Name(), "%s has a limit in jobMaxAge", j.Name())
+		assert.Contains(t, limits, j.Name(), "%s has a limit in jobMaxAge", j.Name())
 	}
 	for _, c := range cron {
 		assert.True(t, slices.Contains(names, c), "the CronJob for %s runs a registered job", c)
 	}
-	for name := range jobMaxAge {
+	for name := range limits {
 		assert.True(t, slices.Contains(names, name), "the limit for %s is for a registered job", name)
 	}
 }

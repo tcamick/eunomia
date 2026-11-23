@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 )
 
 // ErrCorrupt is a database whose integrity check did not say "ok".
@@ -25,10 +27,23 @@ func (s *Store) SnapshotTo(ctx context.Context, path string) error {
 	return nil
 }
 
-// VerifiedTables are the tables a restore check counts: the ones whose rows
-// cannot be refetched (the news archive, the owner's marks, the history of
-// changes) and the roster that every page reads.
-var VerifiedTables = []string{"people", "terms", "changes", "stories", "mentions", "marks"}
+// countQueries are the tables a restore check counts, each with its fixed
+// query: the ones whose rows cannot be refetched (the news archive, the
+// owner's marks, the history of changes) and the roster that every page
+// reads. Constant strings, so no SQL is built at run time.
+var countQueries = map[string]string{
+	"people":   "SELECT count(*) FROM people",
+	"terms":    "SELECT count(*) FROM terms",
+	"changes":  "SELECT count(*) FROM changes",
+	"stories":  "SELECT count(*) FROM stories",
+	"mentions": "SELECT count(*) FROM mentions",
+	"marks":    "SELECT count(*) FROM marks",
+}
+
+// VerifiedTables returns the tables Verify counts, sorted.
+func VerifiedTables() []string {
+	return slices.Sorted(maps.Keys(countQueries))
+}
 
 // Verify runs SQLite's integrity check and counts the rows of each of
 // VerifiedTables. A restore check runs it on a backup opened in a scratch
@@ -41,11 +56,10 @@ func (s *Store) Verify(ctx context.Context) (map[string]int64, error) {
 	if result != "ok" {
 		return nil, fmt.Errorf("%w: %s", ErrCorrupt, result)
 	}
-	counts := make(map[string]int64, len(VerifiedTables))
-	for _, table := range VerifiedTables {
+	counts := make(map[string]int64, len(countQueries))
+	for table, q := range countQueries {
 		var n int64
-		// table is one of VerifiedTables, never input.
-		if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&n); err != nil { //nolint:gosec // a constant table name
+		if err := s.db.QueryRowContext(ctx, q).Scan(&n); err != nil {
 			return nil, fmt.Errorf("count %s: %w", table, err)
 		}
 		counts[table] = n

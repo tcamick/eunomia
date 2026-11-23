@@ -133,10 +133,11 @@
 
   <section aria-labelledby="h-news">
     <h2 id="h-news">In the news</h2>
-    <p class="muted small">Stories that name {d.state.name} or anyone who sits for it.</p>
+    <p class="muted small">
+      Stories that name {d.state.name} or anyone who sits for it. <a href="/news?state={d.state.code}">See them all</a>
+    </p>
     <StoryList filter="state={d.state.code}" limit={5} level={3} paged={false}
       empty="No story from your sources has named {d.state.name} or its members lately." />
-    <p class="all-news"><a href="/news?state={d.state.code}">Every story about {d.state.name}</a></p>
   </section>
 
   <Sources sources={d.sources} />

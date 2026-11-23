@@ -22,8 +22,10 @@ CREATE UNIQUE INDEX stories_url ON stories (url) WHERE url IS NOT NULL;
 CREATE INDEX stories_when ON stories (COALESCE(published, fetched_at));
 
 CREATE TABLE story_feeds (
-  story INTEGER NOT NULL REFERENCES stories (id),
-  feed  TEXT NOT NULL,
+  story      INTEGER NOT NULL REFERENCES stories (id),
+  feed       TEXT NOT NULL,
+  source     TEXT NOT NULL,                   -- that feed's URL
+  fetched_at TEXT NOT NULL,                   -- when that feed first carried it
   PRIMARY KEY (story, feed)
 ) STRICT;
 

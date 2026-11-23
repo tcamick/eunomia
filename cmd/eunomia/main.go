@@ -250,20 +250,30 @@ func buildJobs(d deps) ([]jobs.Job, error) {
 // openVerifier opens and migrates a restored copy of the database, as the
 // server opens its own.
 func openVerifier(ctx context.Context, path string) (backup.Verifier, error) {
-	return store.Open(ctx, path, time.Now)
+	st, err := store.Open(ctx, path, time.Now)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := st.Migrate(ctx); err != nil {
+		_ = st.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	return st, nil
 }
 
-// jobMaxAge is how long each job may go without a success before the
+// jobMaxAge returns how long each job may go without a success before the
 // status page calls it overdue: its CronJob's interval (k8s/app) and some
 // slack, so a job that fails, or whose pod never starts (the backup's, with
 // seabass unplugged), shows within a day. Every registered job has one
 // (TestJobs_EachHasACronJobAndALimit).
-var jobMaxAge = map[string]time.Duration{
-	roster.JobName:        26 * time.Hour,
-	portraits.JobName:     26 * time.Hour,
-	news.JobName:          90 * time.Minute,
-	backup.JobName:        26 * time.Hour,
-	backup.RestoreJobName: 7*24*time.Hour + 2*time.Hour,
+func jobMaxAge() map[string]time.Duration {
+	return map[string]time.Duration{
+		roster.JobName:        26 * time.Hour,
+		portraits.JobName:     26 * time.Hour,
+		news.JobName:          90 * time.Minute,
+		backup.JobName:        26 * time.Hour,
+		backup.RestoreJobName: 7*24*time.Hour + 2*time.Hour,
+	}
 }
 
 // portraitDir is the portraits' directory inside the data directory.
@@ -344,7 +354,7 @@ func serve(ctx context.Context, cfg *config.Config, st *store.Store, registry *j
 	}
 	app, err := httpapi.New(httpapi.Options{
 		Store: st, UI: web.FS(), Version: version.Version, Now: time.Now, Log: *log, Registerer: reg,
-		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(), MaxAge: jobMaxAge,
+		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(), MaxAge: jobMaxAge(),
 		News: st, Feeds: feeds,
 	})
 	if err != nil {

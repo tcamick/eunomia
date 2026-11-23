@@ -151,3 +151,21 @@ func TestBuildJobs_OnlyTheRunningJobRegistersItsMetrics(t *testing.T) {
 		})
 	}
 }
+
+// The restore drill opens a backup as the server would, migrations
+// included: a backup this binary cannot migrate must fail the drill.
+func TestOpenVerifier_MigratesTheCopy(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "old.sqlite")
+	bare, err := store.Open(ctx, path, time.Now)
+	require.NoError(t, err, "creating a database with no migrations applied")
+	require.NoError(t, bare.Close(), "closing it")
+
+	v, err := openVerifier(ctx, path)
+	require.NoError(t, err, "opening it for the drill")
+	t.Cleanup(func() { _ = v.Close() })
+	counts, err := v.Verify(ctx)
+	require.NoError(t, err, "every verified table exists: the copy was migrated")
+	assert.Len(t, counts, len(store.VerifiedTables()), "every table counted")
+}

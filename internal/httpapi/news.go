@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"mime"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"time"
@@ -117,7 +118,16 @@ func (a *newsAPI) storiesHandler(w http.ResponseWriter, r *http.Request) {
 		resp.Next = f.Offset + page
 	}
 	for _, row := range rows {
-		feed, _ := a.feed(row.Feed)
+		feed, ok := a.feed(row.Feed)
+		if !ok {
+			// A feed since removed from config/sources.yaml: its stories stay
+			// (history is kept) and are still labelled, by the address they
+			// came from (PRD §6.6: the source is always labelled).
+			feed = news.Feed{Name: row.Feed, Label: "No longer followed"}
+			if u, err := url.Parse(row.Source); err == nil && u.Host != "" {
+				feed.Name = u.Host
+			}
+		}
 		for i, m := range row.Mentions {
 			if j, ok := geo.Lookup(m.Ref); m.Kind == "state" && ok {
 				row.Mentions[i].Name = j.Name

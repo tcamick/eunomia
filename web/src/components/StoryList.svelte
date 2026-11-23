@@ -32,6 +32,9 @@
   let error = $state('');
   let loading = $state(false);
   let markError = $state('');
+  // What the owner's last mark did, for a screen reader: one polite region
+  // (web-conventions, Live updates).
+  let announce = $state('');
   let ctrl: AbortController | null = null;
 
   async function load(offset: number): Promise<void> {
@@ -71,9 +74,11 @@
       const m = await setMarks(s.id, { [what]: on });
       s.readAt = m.readAt;
       s.savedAt = m.savedAt;
+      announce = what === 'read' ? (on ? 'Marked read' : 'Marked unread') : on ? 'Saved' : 'Removed from saved';
     } catch (e) {
       s[key] = before;
       markError = `Could not save that mark: ${e instanceof Error ? e.message : String(e)}.`;
+      announce = markError;
     }
   }
 
@@ -88,7 +93,7 @@
 {:else if stories.length === 0}
   <p class="muted">{empty}</p>
 {:else}
-  {#if markError}<p role="alert" class="small">{markError}</p>{/if}
+  {#if markError}<p class="small mark-error">{markError}</p>{/if}
   <ol class="stories">
     {#each stories as s (s.id)}
       {@const href = httpsOnly(s.url)}
@@ -135,6 +140,7 @@
     </p>
   {/if}
 {/if}
+<p class="visually-hidden" aria-live="polite">{announce}</p>
 {#if sources && response}<Sources sources={response.sources} />{/if}
 
 <style>
@@ -143,12 +149,15 @@
     padding: 0;
     list-style: none;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
   .stories > li {
     padding-block: 1rem;
     border-block-end: 1px solid var(--line);
     display: grid;
     gap: 0.375rem;
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 11rem;
   }
   .meta {
     display: flex;
@@ -229,5 +238,8 @@
   }
   .small {
     font-size: 0.875rem;
+  }
+  .mark-error {
+    color: var(--bad);
   }
 </style>
