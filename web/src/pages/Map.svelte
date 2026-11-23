@@ -88,8 +88,8 @@
                   {#if d.seats === 0}
                     <span class="muted">none</span>
                   {:else}
-                    <Swatch fill={fillFor(d)} />
-                    <span class="num" aria-hidden="true">{shortLabel(d)}</span><span class="visually-hidden"
+                    <span class="num" aria-hidden="true"><Swatch fill={fillFor(d)} /> {shortLabel(d)}</span><span
+                      class="visually-hidden"
                       >{spoken(s, m)}</span
                     >{#if m === 'house' && !s.voting}{' '}<span class="muted" aria-hidden="true">(non-voting)</span>{/if}
                   {/if}
