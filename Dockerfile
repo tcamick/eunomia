@@ -42,7 +42,7 @@ FROM deps AS check
 COPY --from=tools /src/bin ./bin
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
-RUN make test lint && touch /checked
+RUN make lint test && touch /checked
 
 FROM deps AS build
 ARG VERSION=dev

@@ -70,7 +70,7 @@ func TestRunner_RecordsASuccess(t *testing.T) {
 	rec := &fakeRecorder{}
 	r, _ := newRunner(t, rec, Noop{})
 	require.NoError(t, r.Run(context.Background(), "noop"), "calling r.Run")
-	require.Len(t, rec.results, 1)
+	require.Len(t, rec.results, 1, "one result recorded for one run")
 	got := rec.results[0]
 	assert.Equal(t, store.JobResult{Name: "noop", RunAt: t0, Duration: 2 * time.Second, OK: true}, got)
 	assert.InDelta(t, 1, testutil.ToFloat64(r.ok), 0)
@@ -83,8 +83,8 @@ func TestRunner_RecordsAFailureAndReturnsIt(t *testing.T) {
 	cause := errors.New("source said 503")
 	r, _ := newRunner(t, rec, failing{err: cause})
 	err := r.Run(context.Background(), "failing")
-	require.ErrorIs(t, err, ErrJobFailed)
-	require.ErrorIs(t, err, cause)
+	require.ErrorIs(t, err, ErrJobFailed, "running a failing job")
+	require.ErrorIs(t, err, cause, "the job's own error is wrapped, not replaced")
 	require.Len(t, rec.results, 1, "a failure is recorded too")
 	assert.False(t, rec.results[0].OK)
 	assert.Equal(t, "source said 503", rec.results[0].Message)
@@ -95,14 +95,14 @@ func TestRunner_ReportsARecordingFailure(t *testing.T) {
 	t.Parallel()
 	rec := &fakeRecorder{err: errors.New("disk full")}
 	r, _ := newRunner(t, rec, Noop{})
-	require.ErrorIs(t, r.Run(context.Background(), "noop"), ErrRecord)
+	require.ErrorIs(t, r.Run(context.Background(), "noop"), ErrRecord, "running a job when its result cannot be recorded")
 }
 
 func TestRunner_UnknownJobRecordsNothing(t *testing.T) {
 	t.Parallel()
 	rec := &fakeRecorder{}
 	r, _ := newRunner(t, rec, Noop{})
-	require.ErrorIs(t, r.Run(context.Background(), "nope"), ErrUnknownJob)
+	require.ErrorIs(t, r.Run(context.Background(), "nope"), ErrUnknownJob, "running a job name that is not registered")
 	assert.Empty(t, rec.results, "an unregistered name is never recorded, so the job label stays bounded")
 }
 
@@ -113,7 +113,7 @@ func TestNoop_SecondRunChangesOnlyTheTimes(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, r.Run(ctx, "noop"), "calling r.Run")
 	require.NoError(t, r.Run(ctx, "noop"), "calling r.Run")
-	require.Len(t, rec.results, 2)
+	require.Len(t, rec.results, 2, "two runs record two results")
 	a, b := rec.results[0], rec.results[1]
 	a.RunAt, b.RunAt = time.Time{}, time.Time{}
 	assert.Equal(t, a, b, "two runs differ only in when they ran")

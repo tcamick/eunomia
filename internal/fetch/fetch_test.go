@@ -192,7 +192,7 @@ func TestGet_StatusErrorCarriesTheCode(t *testing.T) {
 	c, _, _ := newClient(t, srv, nil)
 	_, err := c.Get(context.Background(), "test", srv.URL, Validators{})
 	var se *StatusError
-	require.ErrorAs(t, err, &se)
+	require.ErrorAs(t, err, &se, "fetching from a source that answers with an error status")
 	assert.Equal(t, http.StatusForbidden, se.Code)
 }
 
@@ -204,7 +204,7 @@ func TestGet_RefusesABodyOverTheLimit(t *testing.T) {
 	defer srv.Close()
 	c, _, _ := newClient(t, srv, func(o *Options) { o.MaxBytes = 100 })
 	_, err := c.Get(context.Background(), "test", srv.URL, Validators{})
-	require.ErrorIs(t, err, ErrTooLarge)
+	require.ErrorIs(t, err, ErrTooLarge, "fetching a body over MaxBytes")
 	assert.InDelta(t, 1, testutil.ToFloat64(c.requests.WithLabelValues("test", resultTooLarge)), 0)
 }
 
@@ -238,7 +238,7 @@ func TestGet_RefusesAnUnknownSource(t *testing.T) {
 	defer srv.Close()
 	c, _, reg := newClient(t, srv, nil)
 	_, err := c.Get(context.Background(), "https://example.org/whatever", srv.URL, Validators{})
-	require.ErrorIs(t, err, ErrUnknownSource)
+	require.ErrorIs(t, err, ErrUnknownSource, "fetching under a source name that is not configured")
 	n, err := testutil.GatherAndCount(reg, "eunomia_fetch_requests_total")
 	require.NoError(t, err, "calling testutil.GatherAndCount")
 	assert.Zero(t, n, "the source label never takes a value outside the configured list")
