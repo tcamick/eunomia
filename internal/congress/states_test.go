@@ -127,8 +127,16 @@ func TestDelegation_DecidesTheLeadOnSeatsPerPartyCode(t *testing.T) {
 			held:     map[[2]string]int{g{"Republican", ""}: 2, g{"Independent", "Democratic"}: 1, g{"Independent", "Republican"}: 1},
 			wantLead: LeadEven, wantStripes: []string{"I", "R"},
 		},
-		"two other parties count together: O 2 leads D 1": {
+		"two other parties are never added together: D 1, Green 1, Libertarian 1 tie": {
 			held:     map[[2]string]int{g{"Democratic", ""}: 1, g{"Green", ""}: 1, g{"Libertarian", ""}: 1},
+			wantLead: LeadEven, wantStripes: []string{"D", "O"},
+		},
+		"a major party with the most seats leads two smaller ones: R 2, Green 1, Libertarian 1": {
+			held:     map[[2]string]int{g{"Republican", ""}: 2, g{"Green", ""}: 1, g{"Libertarian", ""}: 1},
+			wantLead: "R",
+		},
+		"two other parties tied alone share one colour: no one-colour stripe": {
+			held:     map[[2]string]int{g{"Green", ""}: 1, g{"Libertarian", ""}: 1},
 			wantLead: "O",
 		},
 		"a three-way tie shows two stripes in the fixed letter order": {

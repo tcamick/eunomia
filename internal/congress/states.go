@@ -1,6 +1,7 @@
 package congress
 
 import (
+	"slices"
 	"sort"
 	"time"
 
@@ -28,18 +29,21 @@ type Delegation struct {
 	// territory's House row, its one non-voting delegate).
 	Seats  int `json:"seats"`
 	Vacant int `json:"vacant"`
-	// Lead is the party code that holds more filled seats than any other,
-	// or LeadEven, LeadVacant or LeadNone. A member with no party in the
-	// source has code "", so a lead of "" is "party unknown".
+	// Lead is the colour code of the party that holds more filled seats
+	// than any other (seats counted per party, whatever the caucus), or of
+	// tied parties that share one code; else LeadEven, LeadVacant or
+	// LeadNone. A member with no party in the source has code "", so a lead
+	// of "" is "party unknown".
 	Lead string `json:"lead"`
 	// Stripes are the two party codes a LeadEven tie is drawn with.
 	Stripes []string     `json:"stripes,omitempty"`
 	Parties []PartyCount `json:"parties"`
 }
 
-// codeOrder breaks ties between party codes, the same way for every party:
+// codeOrder orders the tied parties' codes, the same way for every party:
 // the letters in order, "party unknown" last. It decides only which two
-// codes a three-way tie's stripes show; the label names every party.
+// codes a tie of three or more codes is striped with; the label and the
+// accessible name give every party's seats.
 var codeOrder = map[string]int{"D": 0, "I": 1, "O": 2, "R": 3, "": 4}
 
 // StateSummary is one state's, DC's or a territory's delegation in both
@@ -95,28 +99,34 @@ func delegation(seats int, held map[[2]string]int) Delegation {
 		d.Lead = LeadVacant
 		return d
 	}
-	// The map colours by party code, so the lead is decided on seats per
-	// code: every party's seats are counted together before the comparison,
-	// an Independent's or a third party's as much as a major party's (PRD §3).
-	byCode := map[string]int{}
+	// The lead is the party with the most seats, counted per party: each
+	// party's seats together whatever caucus its members join (two
+	// Independents caucusing apart are one party), and two different parties
+	// never added together, though they may share a colour code. The same
+	// arithmetic for every party (PRD §3).
+	byParty := map[string]int{}
 	for _, p := range d.Parties {
-		byCode[p.Code] += p.Seats
+		byParty[p.Party] += p.Seats
 	}
-	codes := make([]string, 0, len(byCode))
-	for c := range byCode {
-		codes = append(codes, c)
+	most := 0
+	for _, n := range byParty {
+		most = max(most, n)
 	}
-	sort.Slice(codes, func(a, b int) bool {
-		if byCode[codes[a]] != byCode[codes[b]] {
-			return byCode[codes[a]] > byCode[codes[b]]
+	// The codes of the parties tied for the most seats, in the fixed order.
+	tied := []string{}
+	for party, n := range byParty {
+		if c := PartyCode(party); n == most && !slices.Contains(tied, c) {
+			tied = append(tied, c)
 		}
-		return codeOrder[codes[a]] < codeOrder[codes[b]]
-	})
-	if len(codes) > 1 && byCode[codes[0]] == byCode[codes[1]] {
-		d.Lead = LeadEven
-		d.Stripes = []string{codes[0], codes[1]}
+	}
+	sort.Slice(tied, func(a, b int) bool { return codeOrder[tied[a]] < codeOrder[tied[b]] })
+	if len(tied) == 1 {
+		// One party, or tied parties that share one colour code: no
+		// stripe of one colour.
+		d.Lead = tied[0]
 	} else {
-		d.Lead = codes[0]
+		d.Lead = LeadEven
+		d.Stripes = tied[:2]
 	}
 	return d
 }
