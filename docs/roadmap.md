@@ -152,8 +152,8 @@ Ideas that are not phases yet; each needs the owner's word.
 | Id | What | Status | Branch | Acceptance | Merged |
 |---|---|---|---|---|---|
 | — | PRD, plan, roadmap, conventions, agent files | done (owner reviewed, 2026-11-22) | `main` (root commit) | — | 2026-11-22 |
-| E0 | Skeleton and deploy | not started | | | |
-| E1a | Roster and people | not started | | | |
+| E0 | Skeleton and deploy | merged; Prometheus and NetworkPolicy checks wait on the owner | `feat/phase-e0-skeleton` | [phase-e0](acceptance/phase-e0.md) | 2026-11-22 |
+| E1a | Roster and people | merged; keyboard check and two cluster runs of the roster pending | `feat/phase-e1a-roster` | [phase-e1a](acceptance/phase-e1a.md) | 2026-11-23 |
 | E1b | The map and state pages | not started | | | |
 | E2 | News | not started | | | |
 | E3a | Home | not started | | | |

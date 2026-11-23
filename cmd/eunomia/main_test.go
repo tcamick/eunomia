@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tcamick/eunomia/internal/config"
+	"github.com/tcamick/eunomia/internal/legislators"
+	"github.com/tcamick/eunomia/internal/portraits"
 	"github.com/tcamick/eunomia/internal/store"
 )
 
@@ -36,7 +39,7 @@ func TestRun_Commands(t *testing.T) {
 		"an unknown command prints usage":  {args: []string{"nope"}, wantCode: exitUsage, wantErr: `unknown command "nope"`},
 		"version prints the build version": {args: []string{"version"}, wantCode: 0, wantOut: "dev"},
 		"a bad flag value names the flag":  {args: []string{"job", "-log-level=loud"}, wantCode: exitUsage, wantErr: "-log-level:"},
-		"job with no name lists the jobs":  {args: []string{"job"}, wantCode: 0, wantOut: "noop"},
+		"job with no name lists the jobs":  {args: []string{"job"}, wantCode: 0, wantOut: "roster"},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -64,7 +67,9 @@ func TestRun_JobRecordsItsRunAndPushes(t *testing.T) {
 	defer gw.Close()
 	dir := t.TempDir()
 
-	code, _, errOut := runCmd(t, map[string]string{"EUNOMIA_PUSHGATEWAY_URL": gw.URL}, "job", "-data-dir", dir, "noop")
+	// portraits on an empty data directory has no member to fetch, so it
+	// runs the whole job path (record, push) without the network.
+	code, _, errOut := runCmd(t, map[string]string{"EUNOMIA_PUSHGATEWAY_URL": gw.URL}, "job", "-data-dir", dir, "portraits")
 	require.Equal(t, 0, code, "stderr: %s", errOut)
 
 	st, err := store.Open(context.Background(), filepath.Join(dir, dbFile), time.Now)
@@ -73,17 +78,17 @@ func TestRun_JobRecordsItsRunAndPushes(t *testing.T) {
 	jobs, err := st.Jobs(context.Background())
 	require.NoError(t, err, "calling st.Jobs")
 	require.Len(t, jobs, 1, "the run is in the shared file")
-	assert.Equal(t, "noop", jobs[0].Name)
+	assert.Equal(t, "portraits", jobs[0].Name)
 	assert.True(t, jobs[0].OK)
 
 	mu.Lock()
 	defer mu.Unlock()
-	assert.Equal(t, []string{"PUT /metrics/job/eunomia-batch/batch/noop"}, paths, "one push, at the end, grouped by the job")
+	assert.Equal(t, []string{"PUT /metrics/job/eunomia-batch/batch/portraits"}, paths, "one push, at the end, grouped by the job")
 }
 
 func TestRun_JobTakesOneName(t *testing.T) {
 	t.Parallel()
-	code, _, errOut := runCmd(t, nil, "job", "-data-dir", t.TempDir(), "noop", "noop")
+	code, _, errOut := runCmd(t, nil, "job", "-data-dir", t.TempDir(), "roster", "portraits")
 	assert.Equal(t, exitUsage, code)
 	assert.Contains(t, errOut, "job takes one name")
 }
@@ -101,4 +106,12 @@ func TestRun_UnknownJobIsAUsageErrorAndRecordsNothing(t *testing.T) {
 	jobs, err := st.Jobs(context.Background())
 	require.NoError(t, err, "calling st.Jobs")
 	assert.Empty(t, jobs)
+}
+
+func TestConfig_SourceDefaultsAreTheAdaptersPublishedDirectories(t *testing.T) {
+	t.Parallel()
+	// config keeps its defaults as literals so it stays a leaf package; this
+	// holds them to the adapters' own.
+	assert.Equal(t, legislators.DefaultBase, config.DefaultLegislatorsURL)
+	assert.Equal(t, portraits.DefaultBase, config.DefaultPortraitsURL)
 }

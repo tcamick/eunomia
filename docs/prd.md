@@ -167,9 +167,9 @@ Each was requested on 2026-11-22 and answered, except where the last column says
 The central choice: **a person and the offices they hold are separate.** A change of Congress, a party switch, a resignation or a candidacy is a new or closed row, and history is kept.
 
 - `people(id, name, born, portrait, bioguide, fec_id, icpsr, openstates_id, wikidata)`
-- `offices(id, level, branch, jurisdiction, body, district, title)`: a seat, such as a state's 3rd congressional district or its governorship
-- `terms(person, office, party, start, end, how_ended, congress, source, fetched_at)`: who held a seat, when
-- `roles(person, body, role, start, end, source)`: leadership posts and committee memberships
+- `terms(person, office, body, state, district, party, caucus, start, end, how, current, left_on, unlisted_on, source, fetched_at)`: who held a seat, when. In Congress, `office` is a text id for the seat (`senate/<state>/<class>`, `house/<state>/<district>`).
+- `leadership(person, chamber, title, start, end, unlisted_on, source, fetched_at)` · `committees(id, parent, chamber, name, current, …)` · `committee_seats(committee, person, side, rank, title, unlisted_on, source, fetched_at)`: leadership posts and committee seats. A row the source stops listing is dated (`unlisted_on`), never deleted.
+- `offices(id, level, branch, jurisdiction, title)`: added in E3b, when governors and state legislators need seats that are not Congress's; the Congress ids above stay as they are. *(Amended 2026-11-23, owner: E1a's model kept; it replaced the planned `offices` and `roles` tables for Congress.)*
 - `bills(id, congress, type, number, title, sponsor, status, updated)` · `votes(id, chamber, congress, session, number, date, question, result, bill)` · `positions(vote, person, position)`
 - `races(id, office, election_date, kind, result_source)` · `candidacies(race, person, party, status, votes, won)` · `calendar(date, jurisdiction, kind, title, source)`
 - `stories(id, source, guid, url, title, summary, published, fetched_at)` · `mentions(story, kind, ref)`: the tags from §6.6

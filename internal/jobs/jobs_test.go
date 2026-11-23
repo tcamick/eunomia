@@ -225,3 +225,11 @@ eunomia_job_history_up 0
 `
 	require.NoError(t, testutil.CollectAndCompare(c, strings.NewReader(want), "eunomia_job_history_up"), "calling testutil.CollectAndCompare")
 }
+
+// Noop does nothing and succeeds: the runner's tests need a job with no
+// outcome of its own. (It was also E0's CronJob, until roster replaced it.)
+type Noop struct{}
+
+func (Noop) Name() string { return "noop" }
+
+func (Noop) Run(context.Context) error { return nil }
