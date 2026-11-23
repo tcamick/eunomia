@@ -111,11 +111,13 @@ func TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder(t *testing.T) {
 	// elsewhere is not a last holder.
 	s := open(t)
 	ctx := context.Background()
-	d3, d5 := 3, 5
+	d3, d5, d7 := 3, 5, 7
 	require.NoError(t, s.ApplyRoster(ctx, RosterPlan{At: t0, Source: rosterSrc,
 		People: []Person{
 			{ID: "A000001", Bioguide: "A000001", First: "Ann", Last: "Able", Display: "Ann Able"},
 			{ID: "B000002", Bioguide: "B000002", First: "Bo", Last: "Baker", Display: "Bo Baker", InCongress: true},
+			{ID: "C000003", Bioguide: "C000003", First: "Cy", Last: "Cole", Display: "Cy Cole"},
+			{ID: "D000004", Bioguide: "D000004", First: "Di", Last: "Dunn", Display: "Di Dunn"},
 		},
 		Terms: []Term{
 			// Ann left OH-3 mid-term: seen, so she is its last holder.
@@ -126,6 +128,12 @@ func TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder(t *testing.T) {
 				Start: "2001-01-03", End: "2003-01-03", Party: "Republican"},
 			{Person: "B000002", Office: "senate/OH/1", Body: "senate", State: "OH",
 				Start: "2025-01-03", End: "2031-01-03", Party: "Republican", Current: true},
+			// OH-7 emptied twice: Cy left, Di won the special election and
+			// left too. The later leaver is the last holder.
+			{Person: "C000003", Office: "house/OH/7", Body: "house", State: "OH", District: &d7,
+				Start: "2025-01-03", End: "2027-01-03", Party: "Republican", LeftOn: "2025-06-01"},
+			{Person: "D000004", Office: "house/OH/7", Body: "house", State: "OH", District: &d7,
+				Start: "2025-09-01", End: "2027-01-03", Party: "Democratic", LeftOn: "2026-10-01"},
 		},
 	}), "seeding the roster")
 
@@ -133,5 +141,6 @@ func TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder(t *testing.T) {
 	require.NoError(t, err, "reading Ohio's last holders")
 	assert.Equal(t, map[string]LastHolder{
 		"house/OH/3": {Person: "A000001", Name: "Ann Able", Party: "Democratic", LeftOn: "2026-11-30"},
-	}, got, "only the member seen leaving mid-term")
+		"house/OH/7": {Person: "D000004", Name: "Di Dunn", Party: "Democratic", LeftOn: "2026-10-01"},
+	}, got, "only members seen leaving mid-term, the latest for a seat emptied twice")
 }

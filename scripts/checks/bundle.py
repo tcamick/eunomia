@@ -1,6 +1,6 @@
 """Usage: scripts/checks/bundle.py <dist dir> <geo dir>   (make bundle-check)
 Checks that each state's district shapes are their own chunk and that the
-entry bundle carries none of them, but does carry the state map."""
+entry bundle carries none of them, nor the state map, which is a chunk too."""
 import glob
 import json
 import os
@@ -36,4 +36,9 @@ print(f'district shapes in the entry bundle: {bad or "none"}')
 print(f'state map in the entry bundle: {state_path("CA") in entry_js}')
 sizes = sorted(os.path.getsize(c) for c in chunks if os.path.basename(c) != entry)
 print(f'other chunks: {len(sizes)}, smallest {sizes[0]} bytes, largest {sizes[-1]} bytes')
-sys.exit(1 if bad or found != len(manifest['districts']) else 0)
+in_entry = state_path('CA') in entry_js
+in_a_chunk = any(state_path('CA') in open(c).read() for c in chunks if os.path.basename(c) != entry)
+print(f'state map in a chunk of its own: {in_a_chunk}')
+# web-conventions, Performance: the map's shapes load with the pages that
+# draw them, not in the bundle every page loads.
+sys.exit(1 if bad or found != len(manifest['districts']) or in_entry or not in_a_chunk else 0)

@@ -85,6 +85,13 @@ func TestStates_TheColourModes(t *testing.T) {
 			code:    "WY", body: House,
 			want: Delegation{Seats: 1, Lead: "", Parties: []PartyCount{{Party: "", Code: "", Seats: 1}}},
 		},
+		"a tie within one party code leads with that code, not a stripe of one colour": {
+			members: []store.Sitting{senator("ME", "Independent", "Democratic", 1), senator("ME", "Independent", "Republican", 2)},
+			code:    "ME", body: Senate,
+			want: Delegation{Seats: 2, Lead: "I", Parties: []PartyCount{
+				{Party: "Independent", Caucus: "Democratic", Code: "I", Seats: 1},
+				{Party: "Independent", Caucus: "Republican", Code: "I", Seats: 1}}},
+		},
 		"DC has no senators": {
 			members: nil,
 			code:    "DC", body: Senate,

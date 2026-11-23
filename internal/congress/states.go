@@ -85,7 +85,9 @@ func delegation(seats int, held map[[2]string]int) Delegation {
 		d.Lead = LeadNone
 	case filled == 0:
 		d.Lead = LeadVacant
-	case len(d.Parties) > 1 && d.Parties[0].Seats == d.Parties[1].Seats:
+	case len(d.Parties) > 1 && d.Parties[0].Seats == d.Parties[1].Seats && d.Parties[0].Code != d.Parties[1].Code:
+		// Two groups with one code (Independents caucusing apart) are one
+		// colour: that code leads, below; there is no stripe of one colour.
 		d.Lead = LeadEven
 	default:
 		d.Lead = d.Parties[0].Code

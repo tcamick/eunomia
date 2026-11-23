@@ -190,6 +190,13 @@
   .who a {
     font-weight: 650;
   }
+  @media (pointer: coarse) {
+    .who a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 2.75rem;
+    }
+  }
   .house {
     display: grid;
     gap: 1.5rem 2.5rem;

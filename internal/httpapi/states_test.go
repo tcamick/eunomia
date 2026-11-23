@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,13 +47,19 @@ func TestStates_SummarisesEveryJurisdiction(t *testing.T) {
 	}
 	assert.Equal(t, congress.LeadEven, oh.Senate.Lead, "Ohio's split Senate delegation")
 	assert.Equal(t, 13, oh.House.Vacant, "Ohio's 13 unfilled House seats in this fixture")
-	require.NotEmpty(t, got.Sources, "the roster source line")
+	names := make([]string, 0, len(got.Sources))
+	for _, s := range got.Sources {
+		names = append(names, s.Name)
+	}
+	assert.Contains(t, names, rosterSourceName, "the roster is cited")
+	assert.Contains(t, names, "Census Bureau, 2020 apportionment", "the seat counts' source is cited")
+	assert.Contains(t, names, stateShapesName, "the map's lines are credited")
 }
 
 func TestState_APageHasItsMembersVacanciesAndSources(t *testing.T) {
 	t.Parallel()
 	got := decode[StateResponse](t, get(t, newRosterHandler(t, ohio(), "", nil, nil), "/api/states/OH"))
-	assert.Equal(t, "Ohio", got.State.Name)
+	assert.Equal(t, "Ohio", got.State.Name, "the page is Ohio's")
 	require.Len(t, got.Senators, 2, "both senators")
 	houseIDs := make([]string, 0, len(got.House))
 	for _, m := range got.House {
@@ -67,7 +74,7 @@ func TestState_APageHasItsMembersVacanciesAndSources(t *testing.T) {
 		}
 	}
 	require.NotNil(t, three.LastHolder, "OH-3's last holder, seen leaving mid-term")
-	assert.Equal(t, "Lou Left", three.LastHolder.Name)
+	assert.Equal(t, "Lou Left", three.LastHolder.Name, "OH-3's last holder by name")
 	assert.Equal(t, 119, got.DistrictMap, "the district map's lines are the 119th Congress's")
 	names := make([]string, 0, len(got.Sources))
 	for _, s := range got.Sources {
@@ -99,6 +106,24 @@ func TestState_SaysWhenTheMembersAreNotTheDrawnLinesCongress(t *testing.T) {
 	}
 }
 
+func TestState_AVacantSenateSeatNamesItsLastHolder(t *testing.T) {
+	t.Parallel()
+	// Review should-fix 5: one senator left mid-term, and the roster saw it.
+	r := ohio()
+	r.sittings = slices.Delete(r.sittings, 1, 2) // Sue Senate is gone
+	r.lastHolders["senate/OH/3"] = store.LastHolder{Person: "S000002", Name: "Sue Senate", Party: "Democratic", LeftOn: "2026-12-01"}
+	got := decode[StateResponse](t, get(t, newRosterHandler(t, r, "", nil, nil), "/api/states/OH"))
+	var senate []StateVacancy
+	for _, v := range got.Vacancies {
+		if v.Body == "senate" {
+			senate = append(senate, v)
+		}
+	}
+	require.Len(t, senate, 1, "one empty Senate seat")
+	require.NotNil(t, senate[0].LastHolder, "it names the senator the roster saw leave")
+	assert.Equal(t, "Sue Senate", senate[0].LastHolder.Name, "the last holder's name")
+}
+
 func TestState_DCHasItsDelegateAndNoDistrictMap(t *testing.T) {
 	t.Parallel()
 	got := decode[StateResponse](t, get(t, newRosterHandler(t, ohio(), "", nil, nil), "/api/states/DC"))
@@ -106,7 +131,7 @@ func TestState_DCHasItsDelegateAndNoDistrictMap(t *testing.T) {
 	require.Len(t, got.House, 1, "DC's delegate")
 	assert.False(t, got.House[0].Voting, "the delegate does not vote on the floor")
 	assert.Zero(t, got.DistrictMap, "DC has no district map")
-	assert.Empty(t, got.Vacancies)
+	assert.Empty(t, got.Vacancies, "DC's one seat is filled")
 }
 
 func TestState_UnknownCodesAre404(t *testing.T) {

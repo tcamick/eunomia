@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"maps"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/tcamick/eunomia/internal/congress"
 	"github.com/tcamick/eunomia/internal/geo"
@@ -47,7 +50,18 @@ func (a *api) statesHandler(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	writeJSON(w, map[string]any{"states": congress.States(ms), keySources: a.rosterSource(ctx)})
+	// The map's seat counts come from the apportionment, and its lines from
+	// Census boundaries: both are cited, as on a state's page (PRD §3).
+	sources := append(a.rosterSource(ctx), apportionmentLine(),
+		SourceLine{Name: stateShapesName, URL: geo.StateShapesSource, CheckedAt: geo.DistrictShapesChecked})
+	writeJSON(w, map[string]any{"states": congress.States(ms), keySources: sources})
+}
+
+// stateShapesName credits the national map's lines (ADR 0006).
+const stateShapesName = "State boundaries: us-atlas 3.0.1, from U.S. Census Bureau boundaries"
+
+func apportionmentLine() SourceLine {
+	return SourceLine{Name: "Census Bureau, 2020 apportionment", URL: geo.ApportionmentSource, CheckedAt: geo.ApportionmentChecked}
 }
 
 func (a *api) stateHandler(w http.ResponseWriter, r *http.Request) {
@@ -84,23 +98,36 @@ func (a *api) stateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sort.SliceStable(resp.House, func(x, y int) bool { return districtOf(resp.House[x]) < districtOf(resp.House[y]) })
+	// A Senate vacancy carries no class, but LastHolders returns only seats
+	// no one holds now, so the state's Senate last holders are its empty
+	// Senate seats' holders, one each, in class order.
+	senateHolders := []store.LastHolder{}
+	for _, office := range slices.Sorted(maps.Keys(holders)) {
+		if strings.HasPrefix(office, "senate/") {
+			senateHolders = append(senateHolders, holders[office])
+		}
+	}
 	for _, c := range congress.Summarize(ms, nil) {
 		for _, v := range c.Vacancies {
 			if v.State != j.Code {
 				continue
 			}
 			sv := StateVacancy{Body: c.Body, District: v.District, Voting: v.Voting}
-			if v.District != nil {
+			switch {
+			case v.District != nil:
 				if h, ok := holders["house/"+j.Code+"/"+strconv.Itoa(*v.District)]; ok {
 					sv.LastHolder = &h
 				}
+			case c.Body == congress.Senate && len(senateHolders) > 0:
+				h := senateHolders[0]
+				senateHolders = senateHolders[1:]
+				sv.LastHolder = &h
 			}
 			resp.Vacancies = append(resp.Vacancies, sv)
 		}
 	}
 	resp.Sources = a.rosterSource(ctx)
-	resp.Sources = append(resp.Sources, SourceLine{Name: "Census Bureau, 2020 apportionment", URL: geo.ApportionmentSource,
-		CheckedAt: geo.ApportionmentChecked})
+	resp.Sources = append(resp.Sources, apportionmentLine())
 	if j.Voting() {
 		resp.DistrictMap = geo.DistrictShapesCongress
 		resp.HouseCongress = congress.SittingHouse(ms)

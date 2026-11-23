@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { StateSummary } from '../lib/api';
-  import { states as shapes } from '../lib/geo/states';
+  import type { StateShape } from '../lib/geo-types';
   import { delegationOf, fillFor, paint, shortLabel, spoken, type Mode } from '../lib/mapmode';
 
   // The map of the states (docs/web-conventions.md, The map). Each state is
@@ -9,7 +9,23 @@
   // territories, which us-atlas does not draw, are boxes along the bottom.
   let { states, mode, labelledby }: { states: StateSummary[]; mode: Mode; labelledby: string } = $props();
 
-  const shapeOf = new Map(shapes.map((s) => [s.code, s]));
+  // The shapes are imported on demand, so only the map page loads them
+  // (docs/web-conventions.md, Performance; make bundle-check).
+  let shapeOf = $state<Map<string, StateShape> | null>(null);
+  let failed = $state(false);
+  $effect(() => {
+    let live = true;
+    import('../lib/geo/states')
+      .then((m) => {
+        if (live) shapeOf = new Map(m.states.map((s) => [s.code, s]));
+      })
+      .catch(() => {
+        if (live) failed = true;
+      });
+    return () => {
+      live = false;
+    };
+  });
   const calloutCodes = ['VT', 'NH', 'MA', 'RI', 'CT', 'NJ', 'DE', 'MD', 'DC'];
   const territoryCodes = ['PR', 'VI', 'GU', 'AS', 'MP'];
   const BOX_W = 84;
@@ -26,7 +42,7 @@
   const rows = $derived(
     states.map((s) => ({
       s,
-      shape: shapeOf.get(s.code),
+      shape: shapeOf?.get(s.code),
       box: boxAt(s.code),
       fill: paint(fillFor(delegationOf(s, mode))),
       label: shortLabel(delegationOf(s, mode)),
@@ -35,6 +51,11 @@
   );
 </script>
 
+{#if failed}
+  <p class="muted">The map could not be loaded; the list below has every state.</p>
+{:else if !shapeOf}
+  <div class="placeholder" aria-busy="true"></div>
+{:else}
 <svg viewBox="0 0 1070 680" role="group" aria-labelledby={labelledby} class="map">
   <g class="shapes">
     {#each rows as r (r.s.code)}
@@ -71,8 +92,14 @@
     {/each}
   </g>
 </svg>
+{/if}
 
 <style>
+  .placeholder {
+    aspect-ratio: 1070 / 680;
+    background: var(--sunk);
+    border-radius: var(--radius-m);
+  }
   .map {
     display: block;
     inline-size: 100%;

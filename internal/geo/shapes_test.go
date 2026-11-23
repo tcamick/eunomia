@@ -47,7 +47,7 @@ func TestShapes_EveryApportionedDistrictHasAShapeAndTheReverse(t *testing.T) {
 	// The roster's House seats are the 2020 apportionment's (HouseDistricts),
 	// so this covers every district the roster can list.
 	m := readManifest(t)
-	assert.Equal(t, 119, m.Congress, "the district lines are the 119th Congress's (roadmap, gate G2)")
+	assert.Equal(t, DistrictShapesCongress, m.Congress, "the shapes are the Congress the API labels them with (roadmap, gate G2)")
 	states := map[string]bool{}
 	for _, j := range All() {
 		if j.Kind != KindState {

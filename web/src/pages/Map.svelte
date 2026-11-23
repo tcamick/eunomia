@@ -192,6 +192,15 @@
   td .num {
     white-space: nowrap;
   }
+  /* On a phone the list is how a state is opened: each name is a 44 px
+     target (web-conventions, Targets). */
+  @media (pointer: coarse) {
+    tbody th a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 2.75rem;
+    }
+  }
   thead th {
     color: var(--muted);
     font-weight: 600;

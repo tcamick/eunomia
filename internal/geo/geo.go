@@ -54,6 +54,11 @@ const (
 	DistrictShapesCongress = 119
 )
 
+// StateShapesSource is where the national map's state lines come from:
+// us-atlas 3.0.1's states-albers-10m.json, made from Census Bureau
+// boundaries (ADR 0006).
+const StateShapesSource = "https://github.com/topojson/us-atlas/tree/v3.0.1"
+
 // DistrictShapesChecked is when the district file was downloaded and pinned.
 var DistrictShapesChecked = time.Date(2026, 11, 23, 0, 0, 0, 0, time.UTC)
 
