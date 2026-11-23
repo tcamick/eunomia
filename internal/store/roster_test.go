@@ -122,7 +122,7 @@ func TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder(t *testing.T) {
 			{ID: "F000006", Bioguide: "F000006", First: "Flo", Last: "Fox", Display: "Flo Fox"},
 		},
 		Terms: []Term{
-			// Ann left OH-3 mid-term: seen, so she is its last holder.
+			// Ann left OH-3 mid-term: seen, so Ann is its last holder.
 			{Person: "A000001", Office: "house/OH/3", Body: "house", State: "OH", District: &d3,
 				Start: "2025-01-03", End: "2027-01-03", Party: "Democratic", LeftOn: "2026-11-30"},
 			// Bo held OH-5 long ago and is a senator now: not OH-5's last holder.
@@ -138,7 +138,7 @@ func TestLastHolders_OnlyAMemberSeenLeavingMidTermIsALastHolder(t *testing.T) {
 				Start: "2025-09-01", End: "2027-01-03", Party: "Democratic", LeftOn: "2026-10-01"},
 			// OH-9: Ed left mid-term; Flo won the special election and served
 			// to the end. The seat is empty again, but Flo, not Ed, held it
-			// last, and we did not see her leave: no last holder is named.
+			// last, and we did not see Flo leave: no last holder is named.
 			{Person: "E000005", Office: "house/OH/9", Body: "house", State: "OH", District: &d9,
 				Start: "2025-01-03", End: "2027-01-03", Party: "Republican", LeftOn: "2025-04-01"},
 			{Person: "F000006", Office: "house/OH/9", Body: "house", State: "OH", District: &d9,

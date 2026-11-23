@@ -255,6 +255,63 @@ export interface StateResponse {
 /** NotFound is a 404 from the API: the thing asked for does not exist. */
 export class NotFound extends Error {}
 
+/** A person or state a story names. */
+export interface StoryMention {
+  kind: 'person' | 'state';
+  ref: string;
+  name?: string;
+}
+
+/** A story as the feed shows it: never an article, only its blurb. */
+export interface Story {
+  id: number;
+  feed: string;
+  feeds: string[];
+  feedName: string;
+  label: string;
+  /** Present only when the feed's link is https. */
+  url?: string;
+  title: string;
+  summary: string;
+  /** An instant; absent when the feed gave none. */
+  published?: string;
+  fetchedAt: string;
+  readAt?: string;
+  savedAt?: string;
+  mentions: StoryMention[];
+}
+
+export interface FeedInfo {
+  id: string;
+  name: string;
+  label: string;
+}
+
+export interface StoriesResponse {
+  stories: Story[];
+  feeds: FeedInfo[];
+  /** The offset of the next page; absent when there is none. */
+  next?: number;
+  sources: SourceLine[];
+}
+
+export interface Marks {
+  readAt?: string;
+  savedAt?: string;
+}
+
+/** setMarks sets or clears a story's read and saved marks on the server. */
+export async function setMarks(id: number, marks: { read?: boolean; saved?: boolean }): Promise<Marks> {
+  const resp = await fetch(`/api/stories/${id}/marks`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(marks),
+    keepalive: true, // a mark made as the page leaves for the publisher still arrives
+  });
+  if (!resp.ok) throw new Error(`the server answered ${resp.status}`);
+  return (await resp.json()) as Marks;
+}
+
 /** getJSON fetches a path under /api and throws with the status on failure. */
 export async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
   const resp = await fetch(path, { headers: { Accept: 'application/json' }, signal });
