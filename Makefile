@@ -80,6 +80,20 @@ geo: ## Regenerate the map's shapes into web/src/lib/geo (Node 22 in Docker; doc
 	  -v $(CURDIR)/scripts/geo:/geo -v $(CURDIR)/web/src/lib/geo:/out -w /geo $(NODE_IMAGE) \
 	  sh -c 'npm ci --no-audit --no-fund && node generate.mjs input /out'
 
+.PHONY: bundle-check
+bundle-check: ## Build the frontend afresh and check each state's districts are a chunk of their own (E1b).
+	rm -rf $(LOCALBIN)/bundle-check && mkdir -p $(LOCALBIN)
+	docker build -q --target web-dist --output type=local,dest=$(LOCALBIN)/bundle-check . >/dev/null
+	python3 -I scripts/checks/bundle.py $(LOCALBIN)/bundle-check web/src/lib/geo
+
+.PHONY: map-check
+map-check: ## Against make run on PORT: every state is one tab stop, alphabetical, and the map agrees with its list (E1b).
+	for mode in senate house; do \
+	  google-chrome --headless=new --no-sandbox --disable-gpu --user-data-dir=$(LOCALBIN)/chrome-check \
+	    --virtual-time-budget=5000 --dump-dom "http://127.0.0.1:$(PORT)/map?mode=$$mode" 2>/dev/null > $(LOCALBIN)/map-$$mode.html; \
+	  python3 -I scripts/checks/map_dom.py $(LOCALBIN)/map-$$mode.html $$mode; \
+	done
+
 .PHONY: build
 build: ## Build bin/eunomia for the host (static, no CGO).
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(LOCALBIN)/eunomia ./cmd/eunomia

@@ -2,6 +2,8 @@
   import Committee from './pages/Committee.svelte';
   import Committees from './pages/Committees.svelte';
   import Congress from './pages/Congress.svelte';
+  import MapPage from './pages/Map.svelte';
+  import State from './pages/State.svelte';
   import Members from './pages/Members.svelte';
   import NotFound from './pages/NotFound.svelte';
   import Person from './pages/Person.svelte';
@@ -15,6 +17,8 @@
   // the page and starts its request afresh.
   const pages = {
     congress: Congress,
+    map: MapPage,
+    state: State,
     members: Members,
     person: Person,
     committees: Committees,
@@ -26,6 +30,7 @@
 
   const sections: { href: string; label: string; names: Route['name'][] }[] = [
     { href: '/', label: 'Congress', names: ['congress'] },
+    { href: '/map', label: 'Map', names: ['map', 'state'] },
     { href: '/members', label: 'Members', names: ['members', 'person'] },
     { href: '/committees', label: 'Committees', names: ['committees', 'committee'] },
     { href: '/search', label: 'Search', names: ['search'] },
@@ -33,7 +38,7 @@
 
   const route = $derived(router.route);
   const Page = $derived(pages[route.name]);
-  const key = $derived(`${route.name}/${route.params['id'] ?? ''}`);
+  const key = $derived(`${route.name}/${route.params['id'] ?? route.params['code'] ?? ''}`);
 </script>
 
 <a class="skip" href="#main">Skip to the page</a>

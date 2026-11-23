@@ -49,6 +49,9 @@ make test lint        # race tests, golangci-lint, govulncheck
 make web-docker       # build the frontend in Node 22 (Docker) into web/dist
 make run PORT=8090    # serve this worktree's data/ on 127.0.0.1:8090 (metrics on 8091)
 make job JOB=roster   # run one job against this worktree's data/ (fetches from the source)
+make geo              # regenerate the map's shapes (web/src/lib/geo; docs/adr/0006)
+make bundle-check     # each state's district map is a chunk of its own
+make map-check PORT=8090  # against make run: the map's tab stops, and the map agrees with its list
 ```
 The binary embeds `web/dist`; without a frontend build the app's pages answer 404 and the API still works.
 
