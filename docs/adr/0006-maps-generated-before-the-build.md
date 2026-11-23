@@ -6,7 +6,7 @@
 The map page draws the 50 states and DC; each state's page draws its congressional districts. The shapes change rarely: state lines almost never, district lines after a redistricting. The page is read on a laptop and a phone, and the CSP keeps every request on Eunomia's own origin.
 
 ## Decision
-- **Shapes are generated before the build and committed,** as TypeScript modules of SVG path data under `web/src/lib/geo/`, by `scripts/geo/generate.mjs` (`make geo`, Node 22 in the same pinned image as the web build). The browser gets plain `<path>` data; it loads no mapping library and no tiles.
+- **Shapes are generated before the build and committed,** as TypeScript modules of SVG path data under `web/src/lib/geo/`, by `scripts/geo/generate.mjs`, run by `make geo` as the Dockerfile's `geo` stage (Node 22 in the same pinned image as the web build): the inputs are copied into the image, the packages are installed with their install scripts off, nothing from the host is mounted (AGENTS.md, Operating on neptune), and only the output is copied back. The browser gets plain `<path>` data; it loads no mapping library and no tiles.
 - **Inputs, pinned:**
   - the states: `us-atlas` 3.0.1's `states-albers-10m.json`, Census boundaries already projected with `d3.geoAlbersUsa` into 975 × 610 (Alaska and Hawaii as insets). It has the 50 states and DC; the territories are drawn as labelled boxes;
   - the districts: the Census Bureau's cartographic boundary file `cb_2024_us_cd119_500k` (the 119th Congress), downloaded by `make geo` and refused unless its SHA-256 matches the Makefile's.

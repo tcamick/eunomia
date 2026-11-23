@@ -17,8 +17,6 @@ LDFLAGS = -X github.com/tcamick/eunomia/internal/version.Version=$(VERSION)
 GEO_CD_URL := https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_cd119_500k.zip
 GEO_CD_ZIP := scripts/geo/input/cb_2024_us_cd119_500k.zip
 GEO_CD_SHA256 := 2b4238aed7e865df75d0c9cfcd8dffa1b79007b24519ecc4b213e683078b031a
-# The Node image the Dockerfile's web stage uses.
-NODE_IMAGE := node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
 
 .PHONY: all
 all: build
@@ -76,9 +74,8 @@ geo: ## Regenerate the map's shapes into web/src/lib/geo (Node 22 in Docker; doc
 	test -f $(GEO_CD_ZIP) || curl -fsS -m 300 -o $(GEO_CD_ZIP) $(GEO_CD_URL)
 	echo "$(GEO_CD_SHA256)  $(GEO_CD_ZIP)" | sha256sum -c --quiet -
 	cd scripts/geo/input && python3 -I -m zipfile -e cb_2024_us_cd119_500k.zip .
-	docker run --rm --user $$(id -u):$$(id -g) -e HOME=/tmp -e npm_config_cache=/tmp/.npm \
-	  -v $(CURDIR)/scripts/geo:/geo -v $(CURDIR)/web/src/lib/geo:/out -w /geo $(NODE_IMAGE) \
-	  sh -c 'npm ci --no-audit --no-fund && node generate.mjs input /out'
+	rm -rf web/src/lib/geo
+	docker build -q --target geo-out --output type=local,dest=web/src/lib/geo . >/dev/null
 
 .PHONY: bundle-check
 bundle-check: ## Build the frontend afresh and check each state's districts are a chunk of their own (E1b).
