@@ -1,7 +1,9 @@
 <script lang="ts">
   // A member's portrait, mirrored to this server by the portraits job. A
   // member without one gets their initials, never a placeholder face.
-  let { id, name, has, size = 3 }: { id: string; name: string; has: boolean; size?: number } = $props();
+  // lazy is false for a portrait at the top of a page, which is seen at once.
+  let { id, name, has, size = 3, lazy = true }: { id: string; name: string; has: boolean; size?: number; lazy?: boolean } =
+    $props();
   const initials = $derived(
     name
       .split(/\s+/)
@@ -13,7 +15,7 @@
 </script>
 
 {#if has}
-  <img src="/portraits/{id}.jpg" alt={name} width="225" height="275" loading="lazy" style:--size="{size}rem" />
+  <img src="/portraits/{id}.jpg" alt={name} width="225" height="275" loading={lazy ? 'lazy' : 'eager'} style:--size="{size}rem" />
 {:else}
   <span class="initials" role="img" aria-label={name} style:--size="{size}rem">{initials}</span>
 {/if}

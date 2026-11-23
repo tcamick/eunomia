@@ -3,6 +3,7 @@ package portraits
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -149,4 +150,21 @@ func TestValidName_AcceptsOnlyABioguideIDDotJpg(t *testing.T) {
 			assert.Equal(t, tc.want, ValidName(tc.name), "ValidName(%q)", tc.name)
 		})
 	}
+}
+
+func TestRun_AWithdrawnPortraitIsRemovedAndDatedNow(t *testing.T) {
+	t.Parallel()
+	// The member had a portrait; the source now answers 404. The page must
+	// not show the old photo, nor date "none published" by the old file.
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "A000001.jpg"), jpeg, 0o600), "writing the old portrait")
+	st := &fakeStore{due: []store.PortraitState{{Person: "A000001", File: "A000001.jpg", ETag: `"a"`}}}
+	j := NewJob(&fakeGetter{}, st, "https://img/", dir, func() time.Time { return t0 })
+	require.NoError(t, j.Run(context.Background()), "running the job")
+
+	require.Len(t, st.records, 1, "one record for the one member checked")
+	assert.Empty(t, st.records[0].File, "the member now has no portrait")
+	assert.Equal(t, t0, st.records[0].FetchedAt, "the change is dated now")
+	_, err := os.Stat(filepath.Join(dir, "A000001.jpg"))
+	assert.ErrorIs(t, err, fs.ErrNotExist, "the withdrawn file is gone")
 }

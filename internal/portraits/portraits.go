@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -146,7 +147,15 @@ func (j *Job) one(ctx context.Context, ps store.PortraitState, name string) (res
 	var se *fetch.StatusError
 	switch {
 	case errors.As(err, &se) && se.Code == http.StatusNotFound:
-		// The source has no portrait for this member; shown as initials.
+		// The source has no portrait for this member; shown as initials. If
+		// it had one before, that is a change: the date is now, and the old
+		// file goes, so the page never shows a photo the source withdrew.
+		if ps.File != "" {
+			rec.FetchedAt = rec.CheckedAt
+			if err := os.Remove(filepath.Join(j.dir, name)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return 0, fmt.Errorf("remove withdrawn portrait %s: %w", ps.Person, err)
+			}
+		}
 		return resMissing, j.st.RecordPortrait(ctx, rec)
 	case err != nil:
 		return 0, err

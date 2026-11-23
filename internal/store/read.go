@@ -65,6 +65,9 @@ type Role struct {
 	Title   string `json:"title"`
 	Start   string `json:"start"`
 	End     string `json:"end,omitempty"`
+	// UnlistedOn is when the source stopped listing the role while it was
+	// open (an RFC 3339 instant), as when its holder left Congress.
+	UnlistedOn string `json:"unlistedOn,omitempty"`
 }
 
 // CurrentLeadership lists the posts held now by members in Congress.
@@ -223,10 +226,15 @@ func (s *Store) PersonDetail(ctx context.Context, id string) (PersonDetail, bool
 		return d, false, fmt.Errorf("read terms of %s: %w", id, err)
 	}
 
-	err = eachRow(ctx, tx, `SELECT chamber, title, start, COALESCE(end,'') FROM leadership WHERE person = ? AND unlisted_on IS NULL
-		ORDER BY end IS NOT NULL, start DESC`, func(r *sql.Rows) error {
+	// Listed roles, and open roles the source stopped listing (the holder left,
+	// or the post ended without a date): those show as "no longer listed".
+	// A past role the source dropped is a correction, and stays hidden.
+	err = eachRow(ctx, tx, `
+		SELECT chamber, title, start, COALESCE(end,''), COALESCE(unlisted_on,'') FROM leadership
+		WHERE person = ? AND (unlisted_on IS NULL OR end IS NULL)
+		ORDER BY end IS NOT NULL OR unlisted_on IS NOT NULL, start DESC`, func(r *sql.Rows) error {
 		x := Role{Person: id, Name: p.Display}
-		if err := r.Scan(&x.Chamber, &x.Title, &x.Start, &x.End); err != nil {
+		if err := r.Scan(&x.Chamber, &x.Title, &x.Start, &x.End, &x.UnlistedOn); err != nil {
 			return err
 		}
 		d.Roles = append(d.Roles, x)

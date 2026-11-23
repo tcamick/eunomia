@@ -43,15 +43,27 @@
         <h2 id="h-{c.body}">{names[c.body]}</h2>
         <Hemicycle chamber={c} members={members.data.members} />
 
-        <h3 class="visually-hidden">Seats by party</h3>
-        <ul class="legend">
-          {#each c.parties as p (p.party + (p.caucus ?? ''))}
-            <li><PartyMark code={p.code} party={p.party} caucus={p.caucus} /><span class="num">{p.seats}</span></li>
-          {/each}
-          {#if c.vacancies.some((v) => v.voting)}
-            <li><PartyMark code="vacant" party="Vacant" /><span class="num">{c.vacancies.filter((v) => v.voting).length}</span></li>
-          {/if}
-        </ul>
+        <!-- The chart's table twin: the same counts as numbers. -->
+        <table class="legend">
+          <caption class="visually-hidden">{names[c.body]} seats by party</caption>
+          <thead class="visually-hidden">
+            <tr><th scope="col">Party</th><th scope="col">Seats</th></tr>
+          </thead>
+          <tbody>
+            {#each c.parties as p (p.party + (p.caucus ?? ''))}
+              <tr>
+                <th scope="row"><PartyMark code={p.code} party={p.party} caucus={p.caucus} /></th>
+                <td class="num">{p.seats}</td>
+              </tr>
+            {/each}
+            {#if c.vacancies.some((v) => v.voting)}
+              <tr>
+                <th scope="row"><PartyMark code="vacant" party="Vacant" /></th>
+                <td class="num">{c.vacancies.filter((v) => v.voting).length}</td>
+              </tr>
+            {/if}
+          </tbody>
+        </table>
         <p class="majority">
           {c.majority} of {c.seats} seats is a majority{#if c.body === 'senate'}; the Vice President breaks a 50–50 tie{/if}.
         </p>
@@ -118,20 +130,18 @@
     font-size: 1rem;
   }
   .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1.5rem;
-    margin: 1rem 0 0;
-    padding: 0;
-    list-style: none;
+    margin-block-start: 1rem;
+    border-collapse: collapse;
   }
-  .legend li {
-    display: inline-flex;
-    gap: 0.5rem;
-    align-items: baseline;
+  .legend th {
+    text-align: start;
+    font-weight: 400;
+    padding: 0.125rem 1.5rem 0.125rem 0;
   }
-  .legend .num {
+  .legend td {
+    text-align: end;
     font-weight: 760;
+    padding-block: 0.125rem;
   }
   .majority {
     margin-block-start: 0.5rem;

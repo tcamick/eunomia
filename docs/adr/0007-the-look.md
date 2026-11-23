@@ -17,9 +17,13 @@ Eunomia is read in short sessions to catch up on Congress, mostly on a phone or 
   | dark (on `#121724`) | `oklch(62% .13 262)` | `oklch(52% .11 60)` | `oklch(52% .11 330)` | `oklch(66% .15 27)` | 12.1 (protan) | 15.5 |
 
   Every colour has at least 3:1 contrast with the page; the vacant gray has 3.4:1 (light) and 4.2:1 (dark). Tritanopia separation is 5.1 for the closest pair, below the 8 target, which the validator allows only with a second encoding; the shapes are that encoding.
-- **The first choice failed and was changed.** Independent purple sat 12.7 from Democratic blue for normal vision and 5.2 under protanopia, Other's green read as gray (chroma 0.09), and the dark set was lighter than the dark band. Independent became amber and Other plum, keeping one hue per party across both themes.
 - **The signature element is the hemicycle** (`components/Hemicycle.svelte`): each chamber's seats in concentric half rings, seated Democrats, their caucus, others, the Republicans' caucus, Republicans, left to right. That order is the drawing convention used for Congress, not a ranking; the legend lists parties by size. Each filled seat links to its member for the pointer; keyboard and screen-reader users reach the same members through the lists below the chart, and the chart itself is one image with a text summary of the seats by party.
 - **The shell** is a top bar with the four sections (Congress, Members, Committees, Search), a skip link, and Status in the footer, since it is for the owner's checks rather than for reading.
+
+## Rejected
+- **The first party palette:** Independent purple (`oklch(48% .13 315)`) and Other green (`oklch(47% .09 170)`). Purple sat 12.7 from Democratic blue for normal vision (floor 15) and 5.2 under protanopia, the green read as gray (chroma 0.09, floor 0.10), and the dark set was lighter than the dark band. Replaced by amber and plum, one hue per party in both themes.
+- **Purple for Independents, as many charts use:** too close to Democratic blue for colour-blind readers at any lightness that also passes contrast.
+- **Gray for parties other than the two largest:** gray is the vacant seat, and a party must not look like an empty chair.
 
 ## Consequences
 - `--party-rep` and `--bad` are both red. Status uses `--bad` only with "✗ Failed" in words, and party marks always carry a shape and a name, so neither is read by colour alone. A future status colour must not be blue, amber or plum.

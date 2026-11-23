@@ -10,6 +10,7 @@ Roadmap `docs/roadmap.md`, E1a; plan `docs/implementation-plan.md` §4, E1a; PRD
 - [x] Any member's page shows photo, party, state or district, term dates, committees and leadership posts, each with its source and fetch date — evidence: `/people/T000250` at 1280 px and 390 px (photo, party mark and name, seat with state rank, current term dates, five leadership posts with dates, committees with subcommittees, service history), with the roster source and the portrait source in the page's footer, each with its fetch time.
 - [x] Search finds a member by part of their name, by state and by committee — evidence: `/api/search` on the live roster: `schum` → Charles E. Schumer; `ohio` and `OH` → Ohio first (its link opens Members filtered to Ohio, 17 members, screenshot); `judiciary` → both Judiciary committees. `/search?q=ohio` screenshot at 390 px.
 - [x] The look is recorded in ADR 0007, and the party colours pass the palette checks in both themes — evidence: `docs/adr/0007-the-look.md`; the dataviz skill's `validate_palette.js`, all pairs, against `--bg`: light all checks pass (CVD ≥ 14.3, normal ≥ 15.6, ≥ 3:1), dark all pass (CVD ≥ 12.1, normal ≥ 15.5, ≥ 3:1). The first tokens failed and were changed (ADR 0007).
+- [ ] It lands with `make land`, the first branch to do so (E0 is merged by hand), and `make deploy-status` then shows pinned, `main` and the cluster in agreement — evidence: (at landing).
 - [ ] The pages have been looked at on a phone-width and a laptop-width window, by keyboard alone, in both themes — evidence: every page at 360 px, at 200% zoom (640 CSS px, scale 2) and in dark at 1280 px, 2026-11-23 (below); **keyboard alone not yet done** by a person.
 
 ## Sources (checked 2026-11-22)
@@ -18,6 +19,7 @@ Roadmap `docs/roadmap.md`, E1a; plan `docs/implementation-plan.md` §4, E1a; PRD
 - House seats per state: Census Bureau, "Table 1. Apportionment Population and Number of Representatives by State: 2020 Census" (`https://www2.census.gov/programs-surveys/decennial/2020/data/apportionment/apportionment-2020-table01.xlsx`), checked 2026-11-22; embedded in `internal/geo/geo.go`.
 
 ## Open questions found during the phase
+- At the start of a new Congress, `committee-membership-current.json` may list few seats for weeks while committees organise; each full-committee seat no longer listed becomes a `seat_left` change and would flood "Since you last looked" (E3a). To decide before 2027-01-03: suppress or batch seat changes when most seats drop at once.
 - The source lists two senators whose appointed terms ended on 2026-11-03 (`end-type: special-election`) and who are still in the current file. The roster shows what the source lists, with the term's end date; it does not decide on its own that the seat is vacant. Confirm this is wanted.
 
 ## Review findings not fixed, and why
@@ -27,6 +29,8 @@ Reviewer pass 1, 2026-11-23: four blocking, fifteen should-fix, eight nits.
 - **Decided by the owner, 2026-11-23:**
   - 12, the data model: E1a's model is kept (text office ids on `terms`, `leadership`, `committee_seats`); the plan (§4, E1a) and PRD §10 are amended to match, and an `offices` table arrives with E3b for governors and state legislators.
   - 13, the npm dependency `@fontsource-variable/public-sans` (ADR 0007's face, self-hosted): go-ahead given.
+
+Reviewer pass 2, 2026-11-23: one blocking, six should-fix, three nits, all fixed. Blocking: a departed member's open leadership posts showed as current on their page; now dated (`unlisted_on`) at departure and shown as "no longer listed from". Should-fix: the `Diff` comment described the old deleting behaviour; a returning member's earlier `left_on` was cleared; a withdrawn portrait kept the old file and date (now removed and dated now); a job-level test that a short file leaves the stored roster untouched; one assertion compared against the wrong member; this list lacked the `make land` line; the Congress legend is now a table (the chart's table twin). Nits: today's date from `lib/format.ts`; ADR 0007 has a Rejected section; the person page's own portrait loads eagerly.
 
 ## Manual verifications
 - Headless Chrome screenshots of `make run` on the live roster: Congress at 1280 px light and dark; Person at 1280 and 390 px; Committee and Committees at 1280 px; Search at 390 px; Members `?state=OH` at 800 px; Not found · Claude · 2026-11-23 · Chrome headless on neptune

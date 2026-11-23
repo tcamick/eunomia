@@ -3,6 +3,9 @@ package roster
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,4 +116,39 @@ func TestJob_CountsChangesByKind(t *testing.T) {
 	require.NoError(t, j.Run(ctx), "the run after a party switch")
 	assert.InDelta(t, 1, testutil.ToFloat64(j.changes.WithLabelValues(KindPartyChanged)), 0, "one party switch is counted once")
 	assert.Zero(t, testutil.ToFloat64(j.changes.WithLabelValues(KindLeft)), "nothing else is counted")
+}
+
+// fixtureFiles serves the three fixture files by name, as the source would.
+type fixtureFiles struct{ t *testing.T }
+
+func (f fixtureFiles) Get(_ context.Context, _, rawURL string, _ fetch.Validators) (*fetch.Response, error) {
+	name := rawURL[strings.LastIndex(rawURL, "/")+1:]
+	b, err := os.ReadFile(filepath.Join("..", "legislators", "testdata", name))
+	require.NoError(f.t, err, "reading fixture %s", name)
+	return &fetch.Response{Status: 200, Body: b, Validators: fetch.Validators{ETag: `"` + name + `"`}}, nil
+}
+
+func TestJob_AShortFileIsRejectedAndTheStoredRosterIsUntouched(t *testing.T) {
+	t.Parallel()
+	// The fixture lists 15 members, far under MinMembers: a file truncated
+	// upstream must not end 524 terms.
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+	ctx := context.Background()
+	before, err := s.RosterState(ctx)
+	require.NoError(t, err, "reading the stored roster")
+
+	src := legislators.NewClient(fixtureFiles{t}, base, legislators.MinMembers)
+	j, err := NewJob(src, s, base, func() time.Time { return t0 }, nil)
+	require.NoError(t, err, "building the job")
+	err = j.Run(ctx)
+	require.ErrorIs(t, err, legislators.ErrTooFew, "running against a short file")
+
+	after, err := s.RosterState(ctx)
+	require.NoError(t, err, "reading the stored roster again")
+	assert.Equal(t, before, after, "a rejected file writes no roster row")
+	_, ok, err := s.SourceState(ctx, legislators.SourceLegislators)
+	require.NoError(t, err, "reading the source's state")
+	assert.False(t, ok, "a rejected file is not recorded as a check")
 }

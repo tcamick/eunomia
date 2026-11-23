@@ -134,9 +134,12 @@ func Desired(snap *legislators.Snapshot) (store.RosterState, error) {
 // are written, but no change is recorded for each of 539 arrivals.
 //
 // History is kept: a member missing from the file keeps their row, terms and
-// roles; their current term gets left_on. For a member still listed, the
-// file holds their whole history, so their stored terms and roles follow its
-// corrections (a term the file no longer lists for them is deleted).
+// roles; their current term gets left_on, and their open roles and committee
+// seats are dated (unlisted_on), so no page shows them as current. For a
+// member still listed, the file holds their whole history, so their stored
+// terms and roles follow its corrections (a term the file no longer lists
+// for them is kept, dated with unlisted_on, and recorded as a correction).
+// Nothing is deleted.
 func Diff(have, want store.RosterState, today string) store.RosterPlan {
 	d := differ{have: have, want: want, today: today, first: len(have.People) == 0,
 		haveCur: currentTerms(have), wantCur: currentTerms(want)}
@@ -201,6 +204,12 @@ func (d *differ) departures() {
 			d.p.Terms = append(d.p.Terms, t)
 			office = t.Office
 		}
+		// Their open roles stop with their listing; one change says why.
+		for _, k := range sortedLeadKeys(d.have.Leadership) {
+			if k.Person == id && d.have.Leadership[k].End == "" {
+				d.p.UnlistLeadership = append(d.p.UnlistLeadership, k)
+			}
+		}
 		d.change(store.Change{Kind: KindLeft, Person: id, Office: office,
 			Summary: fmt.Sprintf("%s is no longer listed as a member of Congress", h.Display)})
 	}
@@ -210,7 +219,13 @@ func (d *differ) departures() {
 func (d *differ) terms() {
 	for _, k := range sortedTermKeys(d.want.Terms) {
 		w := d.want.Terms[k]
-		if h, ok := d.have.Terms[k]; !ok || !sameTerm(h, w) {
+		h, ok := d.have.Terms[k]
+		if ok && w.LeftOn == "" && h.LeftOn != "" {
+			// The file never gives left_on; it is ours, the day a member
+			// stopped being listed. A member who returns keeps that history.
+			w.LeftOn = h.LeftOn
+		}
+		if !ok || !sameTerm(h, w) {
 			d.p.Terms = append(d.p.Terms, w)
 		}
 	}

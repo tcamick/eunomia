@@ -54,6 +54,8 @@ export interface Role {
   title: string;
   start: string;
   end?: string;
+  /** When the source stopped listing the role while it was open (an instant). */
+  unlistedOn?: string;
 }
 
 export interface PartyCount {

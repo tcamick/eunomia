@@ -4,8 +4,8 @@
   import PartyMark from '../components/PartyMark.svelte';
   import Portrait from '../components/Portrait.svelte';
   import Sources from '../components/Sources.svelte';
-  import type { Person, PersonSeat, PersonTerm } from '../lib/api';
-  import { calendarDate, localDate, seatName, year } from '../lib/format';
+  import type { Person, PersonSeat, PersonTerm, Role } from '../lib/api';
+  import { calendarDate, localDate, seatName, todayUTC, year } from '../lib/format';
   import { Load } from '../lib/load.svelte';
   import type { PageProps } from '../lib/page';
   import { partyCode } from '../lib/party';
@@ -24,9 +24,9 @@
   const p = $derived(load.data);
   const current = $derived(p?.terms.find((t) => t.current));
   const terms = $derived([...(p?.terms ?? [])].sort((a, b) => b.start.localeCompare(a.start)));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayUTC();
   const roles = $derived(
-    [...(p?.roles ?? [])].sort((a, b) => Number(isCurrent(b.end)) - Number(isCurrent(a.end)) || b.start.localeCompare(a.start)),
+    [...(p?.roles ?? [])].sort((a, b) => Number(isCurrent(b)) - Number(isCurrent(a)) || b.start.localeCompare(a.start)),
   );
 
   // Committee seats: each top-level committee, with this member's
@@ -40,8 +40,10 @@
     return { top: top.map((t) => ({ seat: t, subs: subsOf(t.committee) })), orphans };
   });
 
-  function isCurrent(end?: string): boolean {
-    return !end || end >= today;
+  // A role is current while the source lists it and its end, if any, is
+  // ahead. A role it stopped listing is shown as such, never as current.
+  function isCurrent(r: Role): boolean {
+    return !r.unlistedOn && (!r.end || r.end >= today);
   }
 
   function office(t: PersonTerm): string {
@@ -75,7 +77,7 @@
   <p aria-busy="true">Loading the member…</p>
 {:else}
   <header class="who">
-    <Portrait id={p.id} name={p.name} has={p.portrait} size={7} />
+    <Portrait id={p.id} name={p.name} has={p.portrait} size={7} lazy={false} />
     <div class="titles">
       <h1 tabindex="-1">{p.name}</h1>
       {#if current}
@@ -97,9 +99,11 @@
       <ul class="plain">
         {#each roles as r (r.title + r.start)}
           <li>
-            <span class:muted={!isCurrent(r.end)}>{r.title}</span>
+            <span class:muted={!isCurrent(r)}>{r.title}</span>
             <span class="muted small">
-              {#if isCurrent(r.end)}since {calendarDate(r.start)}{:else}{calendarDate(r.start)} to {calendarDate(r.end)}{/if}
+              {#if isCurrent(r)}since {calendarDate(r.start)}{:else if r.unlistedOn}from {calendarDate(r.start)}; no longer listed from {localDate(
+                  r.unlistedOn,
+                )}{:else}{calendarDate(r.start)} to {calendarDate(r.end)}{/if}
             </span>
           </li>
         {/each}

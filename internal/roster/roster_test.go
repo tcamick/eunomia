@@ -137,7 +137,15 @@ func TestDiff_AMemberMissingFromTheFileKeepsTheirHistory(t *testing.T) {
 	assert.Equal(t, []string{KindLeft}, kinds(p.Changes))
 	assert.Equal(t, "S000033", p.Changes[0].Person)
 	assert.Empty(t, p.UnlistTerms, "a departed member's terms stay listed, as history")
-	assert.Empty(t, p.UnlistLeadership, "a departed member's roles stay listed, as history")
+	require.NotEmpty(t, p.UnlistLeadership, "a departed member's open roles are dated, so no page shows them as current")
+	for _, k := range p.UnlistLeadership {
+		assert.Equal(t, "S000033", k.Person, "only the departed member's roles are dated")
+	}
+	d, _, err := s.PersonDetail(context.Background(), "S000033")
+	require.NoError(t, err, "reading the departed member's page")
+	for _, r := range d.Roles {
+		assert.True(t, r.End != "" || r.UnlistedOn != "", "role %q is not shown as current", r.Title)
+	}
 
 	st, err := s.RosterState(context.Background())
 	require.NoError(t, err, "reading the stored roster")
@@ -180,9 +188,19 @@ func TestDiff_AReturningMemberIsAnArrival(t *testing.T) {
 	snap := snapshot(t)
 	load(t, s, snap, today)
 	load(t, s, withoutMember(snap, "N000147"), today)
-	p := load(t, s, snap, today)
+	p := load(t, s, snap, "2026-12-01")
 	require.Equal(t, []string{KindArrived}, kinds(p.Changes), "changes after an arrival")
 	assert.Contains(t, p.Changes[0].Summary, "District of Columbia at large")
+
+	d, _, err := s.PersonDetail(context.Background(), "N000147")
+	require.NoError(t, err, "reading the returning member's page")
+	var leftOn []string
+	for _, term := range d.Terms {
+		if term.LeftOn != "" {
+			leftOn = append(leftOn, term.LeftOn)
+		}
+	}
+	assert.Equal(t, []string{today}, leftOn, "the day they stopped being listed is kept when they return")
 }
 
 func TestDiff_APartySwitchIsOneChange(t *testing.T) {
@@ -270,6 +288,10 @@ func TestDiff_ACorrectedTermStartKeepsTheOldRowAndSaysSo(t *testing.T) {
 	s := openStore(t)
 	snap := snapshot(t)
 	load(t, s, snap, today)
+	i := slices.IndexFunc(snap.Legislators, func(l legislators.Legislator) bool { return l.ID.Bioguide == edited })
+	require.GreaterOrEqual(t, i, 0, "the fixture has the edited member")
+	original := snap.Legislators[i].Terms[0].Start
+	require.NotEqual(t, "2007-01-05", original, "the correction changes the date")
 	fixed := edit(t, snap, func(l *legislators.Legislator) { l.Terms[0].Start = "2007-01-05" })
 	p := load(t, s, fixed, today)
 	assert.Len(t, p.UnlistTerms, 1, "the old term is dated, not deleted")
@@ -277,7 +299,7 @@ func TestDiff_ACorrectedTermStartKeepsTheOldRowAndSaysSo(t *testing.T) {
 	d, _, err := s.PersonDetail(context.Background(), edited)
 	require.NoError(t, err, "reading the member's page")
 	for _, term := range d.Terms {
-		assert.NotEqual(t, snap.Legislators[0].Terms[0].Start, term.Start, "the page shows the source's corrected record only")
+		assert.NotEqual(t, original, term.Start, "the page shows the source's corrected record only")
 	}
 }
 

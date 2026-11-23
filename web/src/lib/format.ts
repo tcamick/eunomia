@@ -16,6 +16,12 @@ export function calendarDate(ymd: string | undefined, locale?: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(t);
 }
 
+/** todayUTC is today's date as YYYY-MM-DD in UTC, the zone the sources'
+ * calendar dates are compared in. */
+export function todayUTC(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
 /** year is the year of a YYYY-MM-DD date. */
 export function year(ymd: string | undefined): string {
   return reDate.exec(ymd ?? '')?.[1] ?? '';
