@@ -19,8 +19,8 @@
 
   --party-dem: oklch(47% 0.15 262);
   --party-rep: oklch(49% 0.17 27);
-  --party-ind: oklch(48% 0.13 315);
-  --party-other: oklch(47% 0.09 170);
+  --party-ind: oklch(64% 0.11 60);
+  --party-other: oklch(64% 0.11 330);
   --vacant: oklch(62% 0.012 260);
 
   --radius-s: 0.25rem;
@@ -42,10 +42,10 @@
     --accent-soft: oklch(34% 0.05 80);
     --ok: oklch(80% 0.12 150);
     --bad: oklch(75% 0.13 28);
-    --party-dem: oklch(73% 0.12 262);
-    --party-rep: oklch(72% 0.14 27);
-    --party-ind: oklch(74% 0.11 315);
-    --party-other: oklch(74% 0.09 170);
+    --party-dem: oklch(62% 0.13 262);
+    --party-rep: oklch(66% 0.15 27);
+    --party-ind: oklch(52% 0.11 60);
+    --party-other: oklch(52% 0.11 330);
     --vacant: oklch(58% 0.012 260);
     color-scheme: dark;
   }
@@ -62,10 +62,10 @@
   --accent-soft: oklch(34% 0.05 80);
   --ok: oklch(80% 0.12 150);
   --bad: oklch(75% 0.13 28);
-  --party-dem: oklch(73% 0.12 262);
-  --party-rep: oklch(72% 0.14 27);
-  --party-ind: oklch(74% 0.11 315);
-  --party-other: oklch(74% 0.09 170);
+  --party-dem: oklch(62% 0.13 262);
+  --party-rep: oklch(66% 0.15 27);
+  --party-ind: oklch(52% 0.11 60);
+  --party-other: oklch(52% 0.11 330);
   --vacant: oklch(58% 0.012 260);
   color-scheme: dark;
 }

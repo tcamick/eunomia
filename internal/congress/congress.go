@@ -47,7 +47,7 @@ type Chamber struct {
 	Majority  int             `json:"majority"`
 	Parties   []PartyCount    `json:"parties"`
 	Vacancies []Vacancy       `json:"vacancies"`
-	Delegates []store.Sitting `json:"delegates,omitempty"`
+	Delegates []store.Sitting `json:"delegates"`
 	Leaders   []store.Role    `json:"leaders"`
 }
 
@@ -123,6 +123,8 @@ func Summarize(members []store.Sitting, roles []store.Role) []Chamber {
 	}
 	senate.Leaders = leaders(roles, Senate)
 	house.Leaders = leaders(roles, House)
+	// The page reads every list; an empty one is [], never missing or null.
+	senate.Delegates = []store.Sitting{}
 	if house.Delegates == nil {
 		house.Delegates = []store.Sitting{}
 	}

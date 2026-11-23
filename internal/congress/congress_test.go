@@ -1,6 +1,8 @@
 package congress
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -132,4 +134,21 @@ func TestPartyCode(t *testing.T) {
 	assert.Equal(t, "I", PartyCode("Independent"))
 	assert.Equal(t, "O", PartyCode("Libertarian"))
 	assert.Empty(t, PartyCode(""), "an unknown party has no colour, not a guessed one")
+}
+
+func TestSummarize_EveryListIsAnArrayInJSON(t *testing.T) {
+	t.Parallel()
+	// The Congress page reads each list's length; the Senate has no
+	// delegates, and an empty roster has no parties or leaders.
+	for _, c := range Summarize(nil, nil) {
+		b, err := json.Marshal(c)
+		require.NoError(t, err, "encoding the %s summary", c.Body)
+		var m map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(b, &m), "decoding the %s summary", c.Body)
+		for _, key := range []string{"parties", "vacancies", "delegates", "leaders"} {
+			raw, ok := m[key]
+			require.True(t, ok, "%s summary has %q", c.Body, key)
+			assert.True(t, strings.HasPrefix(string(raw), "["), "%s %q is an array, got %s", c.Body, key, raw)
+		}
+	}
 }
