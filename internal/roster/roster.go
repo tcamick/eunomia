@@ -26,6 +26,12 @@ const (
 	KindLeadershipGained = "leadership_gained"
 	KindLeadershipLost   = "leadership_lost"
 	KindChairChanged     = "chair_changed"
+	KindSeatJoined       = "seat_joined"
+	KindSeatLeft         = "seat_left"
+	// KindRecordCorrected: the source stopped listing a term or role of a
+	// member it still lists, usually an upstream correction. The old row is
+	// kept and dated, never deleted.
+	KindRecordCorrected = "record_corrected"
 )
 
 // Party names the parties' own way. The source writes "Democrat" for the
@@ -213,7 +219,11 @@ func (d *differ) terms() {
 			continue
 		}
 		if _, ok := d.want.Terms[k]; !ok {
-			d.p.DeleteTerms = append(d.p.DeleteTerms, k)
+			d.p.UnlistTerms = append(d.p.UnlistTerms, k)
+			h := d.have.Terms[k]
+			d.change(store.Change{Kind: KindRecordCorrected, Person: k.Person, Office: k.Office,
+				Summary: fmt.Sprintf("The source no longer lists %s's term for %s starting %s",
+					d.want.People[k.Person].Display, seatName(h), h.Start)})
 		}
 	}
 	for _, id := range sortedKeys(d.want.People) {
@@ -259,10 +269,14 @@ func (d *differ) leadership() {
 		if _, ok := d.want.Leadership[k]; ok {
 			continue
 		}
-		d.p.DeleteLeadership = append(d.p.DeleteLeadership, k)
+		d.p.UnlistLeadership = append(d.p.UnlistLeadership, k)
+		name := d.want.People[k.Person].Display
 		if h := d.have.Leadership[k]; h.End == "" {
 			d.change(store.Change{Kind: KindLeadershipLost, Person: k.Person,
-				Summary: fmt.Sprintf("%s is no longer listed as %s", d.want.People[k.Person].Display, h.Title)})
+				Summary: fmt.Sprintf("%s is no longer listed as %s", name, h.Title)})
+		} else {
+			d.change(store.Change{Kind: KindRecordCorrected, Person: k.Person,
+				Summary: fmt.Sprintf("The source no longer lists %s as %s from %s", name, h.Title, h.Start)})
 		}
 	}
 }
@@ -285,8 +299,10 @@ func (d *differ) committees() {
 	}
 }
 
-// seats replaces the committee seats, a snapshot, and records new chairs and
-// ranking members of full committees.
+// seats writes the listed committee seats and dates the ones the source
+// stops listing (kept, never deleted). For full committees it records who
+// joined, who left, and new chairs and ranking members; a member leaving
+// Congress is one change (people), not one per seat.
 func (d *differ) seats() {
 	for _, k := range sortedSeatKeys(d.want.Seats) {
 		w := d.want.Seats[k]
@@ -295,14 +311,26 @@ func (d *differ) seats() {
 			d.p.Seats = append(d.p.Seats, w)
 		}
 		c := d.want.Committees[k.Committee]
+		// Joining as chair or ranking member is the one change below.
+		if c.Parent == "" && !ok && d.wasListed(k.Person) && !isLeadSeat(w.Title) {
+			d.change(store.Change{Kind: KindSeatJoined, Person: k.Person, Committee: k.Committee,
+				Summary: fmt.Sprintf("%s is now listed on the %s", d.want.People[k.Person].Display, c.Name)})
+		}
 		if c.Parent == "" && isLeadSeat(w.Title) && (!ok || h.Title != w.Title) {
 			d.change(store.Change{Kind: KindChairChanged, Person: k.Person, Committee: k.Committee,
 				Summary: fmt.Sprintf("%s is now listed as %s of the %s", d.want.People[k.Person].Display, w.Title, c.Name)})
 		}
 	}
 	for _, k := range sortedSeatKeys(d.have.Seats) {
-		if _, ok := d.want.Seats[k]; !ok {
-			d.p.DeleteSeats = append(d.p.DeleteSeats, k)
+		if _, ok := d.want.Seats[k]; ok {
+			continue
+		}
+		d.p.UnlistSeats = append(d.p.UnlistSeats, k)
+		person, listed := d.want.People[k.Person]
+		c, known := d.have.Committees[k.Committee]
+		if listed && known && c.Parent == "" {
+			d.change(store.Change{Kind: KindSeatLeft, Person: k.Person, Committee: k.Committee,
+				Summary: fmt.Sprintf("%s is no longer listed on the %s", person.Display, c.Name)})
 		}
 	}
 }
@@ -323,6 +351,13 @@ func sameInt(a, b *int) bool {
 		return a == b
 	}
 	return *a == *b
+}
+
+// wasListed reports whether the last run listed the person in Congress, so a
+// new seat is a change of committee, not part of an arrival.
+func (d *differ) wasListed(id string) bool {
+	h, ok := d.have.People[id]
+	return ok && h.InCongress
 }
 
 // isLeadSeat reports whether a committee title is a chair or ranking member.

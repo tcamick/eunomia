@@ -88,7 +88,7 @@ func (j *Job) Run(ctx context.Context) error {
 		return err
 	}
 	log.Info().Int("members", len(snap.Legislators)).Int("people", len(plan.People)).Int("terms", len(plan.Terms)).
-		Int("seats", len(plan.Seats)+len(plan.DeleteSeats)).Int("changed", len(plan.Changes)).Msg("Applied the roster")
+		Int("seats", len(plan.Seats)+len(plan.UnlistSeats)).Int("changed", len(plan.Changes)).Msg("Applied the roster")
 	return nil
 }
 

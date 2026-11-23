@@ -49,6 +49,7 @@ CREATE TABLE terms (
   affiliations TEXT NOT NULL DEFAULT '[]',   -- JSON: party spans within the term, when it changed
   current      INTEGER NOT NULL CHECK (current IN (0, 1)),
   left_on      TEXT,                         -- when the source stopped listing the member, if it did mid-term
+  unlisted_on  TEXT,                         -- when the source stopped listing this term for a still-listed member (a correction); NULL while listed
   source       TEXT NOT NULL,
   fetched_at   TEXT NOT NULL,
   PRIMARY KEY (person, office, start)
@@ -62,6 +63,7 @@ CREATE TABLE leadership (
   title      TEXT NOT NULL,
   start      TEXT NOT NULL,
   end        TEXT,                           -- NULL while held
+  unlisted_on TEXT,          -- when the source stopped listing this role; NULL while listed
   source     TEXT NOT NULL,
   fetched_at TEXT NOT NULL,
   PRIMARY KEY (person, title, start)
@@ -79,14 +81,16 @@ CREATE TABLE committees (
   fetched_at   TEXT NOT NULL
 ) STRICT;
 
--- Who sits on each committee now. A snapshot, replaced as the source
--- changes; the changes table keeps what matters of its history (chairs).
+-- Who sits, or sat, on each committee. A seat the source stops listing is
+-- kept with the date it stopped (go-conventions, Provenance: history is
+-- never deleted); a seat listed again is current again.
 CREATE TABLE committee_seats (
   committee  TEXT NOT NULL REFERENCES committees (id),
   person     TEXT NOT NULL REFERENCES people (id),
   side       TEXT NOT NULL CHECK (side IN ('majority', 'minority')),
   rank       INTEGER,
   title      TEXT,
+  unlisted_on TEXT,          -- when the source stopped listing this seat; NULL while listed
   source     TEXT NOT NULL,
   fetched_at TEXT NOT NULL,
   PRIMARY KEY (committee, person)

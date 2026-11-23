@@ -120,26 +120,27 @@ type RosterState struct {
 	Seats      map[SeatKey]Seat
 }
 
-// RosterPlan is what the roster job decided to write: rows to upsert or
-// delete, and the changes to record, all in one transaction.
+// RosterPlan is what the roster job decided to write: rows to upsert, rows
+// the source stopped listing (kept, and dated, never deleted), and the
+// changes to record, all in one transaction.
 type RosterPlan struct {
 	At               time.Time
 	Source           string
 	People           []Person
 	Terms            []Term
-	DeleteTerms      []TermKey
+	UnlistTerms      []TermKey
 	Leadership       []Leadership
-	DeleteLeadership []LeadershipKey
+	UnlistLeadership []LeadershipKey
 	Committees       []Committee
 	Seats            []Seat
-	DeleteSeats      []SeatKey
+	UnlistSeats      []SeatKey
 	Changes          []Change
 }
 
 // Empty reports whether the plan writes nothing.
 func (p RosterPlan) Empty() bool {
-	return len(p.People)+len(p.Terms)+len(p.DeleteTerms)+len(p.Leadership)+len(p.DeleteLeadership)+
-		len(p.Committees)+len(p.Seats)+len(p.DeleteSeats)+len(p.Changes) == 0
+	return len(p.People)+len(p.Terms)+len(p.UnlistTerms)+len(p.Leadership)+len(p.UnlistLeadership)+
+		len(p.Committees)+len(p.Seats)+len(p.UnlistSeats)+len(p.Changes) == 0
 }
 
 // nullable maps the zero value to NULL.
@@ -199,7 +200,7 @@ func (s *Store) RosterState(ctx context.Context) (RosterState, error) {
 
 	if err := eachRow(ctx, tx, `SELECT person, office, body, state, district, senate_class, start, end, COALESCE(party,''),
 		COALESCE(caucus,''), COALESCE(how,''), COALESCE(end_type,''), COALESCE(state_rank,''), COALESCE(url,''),
-		affiliations, current, COALESCE(left_on,'') FROM terms`, func(r *sql.Rows) error {
+		affiliations, current, COALESCE(left_on,'') FROM terms WHERE unlisted_on IS NULL`, func(r *sql.Rows) error {
 		var t Term
 		var district, class sql.NullInt64
 		var cur int
@@ -216,7 +217,8 @@ func (s *Store) RosterState(ctx context.Context) (RosterState, error) {
 		return st, fmt.Errorf("read terms: %w", err)
 	}
 
-	if err := eachRow(ctx, tx, `SELECT person, chamber, title, start, COALESCE(end,'') FROM leadership`, func(r *sql.Rows) error {
+	if err := eachRow(ctx, tx, `
+		SELECT person, chamber, title, start, COALESCE(end,'') FROM leadership WHERE unlisted_on IS NULL`, func(r *sql.Rows) error {
 		var l Leadership
 		if err := r.Scan(&l.Person, &l.Chamber, &l.Title, &l.Start, &l.End); err != nil {
 			return err
@@ -241,7 +243,9 @@ func (s *Store) RosterState(ctx context.Context) (RosterState, error) {
 		return st, fmt.Errorf("read committees: %w", err)
 	}
 
-	if err := eachRow(ctx, tx, `SELECT committee, person, side, COALESCE(rank,0), COALESCE(title,'') FROM committee_seats`,
+	if err := eachRow(ctx, tx, `
+		SELECT committee, person, side, COALESCE(rank,0), COALESCE(title,'')
+		FROM committee_seats WHERE unlisted_on IS NULL`,
 		func(r *sql.Rows) error {
 			var x Seat
 			if err := r.Scan(&x.Committee, &x.Person, &x.Side, &x.Rank, &x.Title); err != nil {
@@ -301,8 +305,8 @@ func (s *Store) ApplyRoster(ctx context.Context, p RosterPlan) error {
 	defer func() { _ = tx.Rollback() }()
 
 	for _, step := range []func(context.Context, *sql.Tx, RosterPlan, string) error{
-		writePeople, deleteTerms, writeTerms, deleteLeadership, writeLeadership,
-		writeCommittees, deleteSeats, writeSeats, writeChanges,
+		writePeople, unlistTerms, writeTerms, unlistLeadership, writeLeadership,
+		writeCommittees, unlistSeats, writeSeats, writeChanges,
 	} {
 		if err := step(ctx, tx, p, at); err != nil {
 			return err
@@ -339,11 +343,12 @@ func writePeople(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error
 	return nil
 }
 
-func deleteTerms(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error {
-	for _, k := range p.DeleteTerms {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM terms WHERE person = ? AND office = ? AND start = ?`,
-			k.Person, k.Office, k.Start); err != nil {
-			return fmt.Errorf("delete term %v: %w", k, err)
+func unlistTerms(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error {
+	for _, k := range p.UnlistTerms {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE terms SET unlisted_on = ? WHERE person = ? AND office = ? AND start = ? AND unlisted_on IS NULL`,
+			at, k.Person, k.Office, k.Start); err != nil {
+			return fmt.Errorf("unlist term %v: %w", k, err)
 		}
 	}
 	return nil
@@ -360,8 +365,8 @@ func writeTerms(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error 
 			  senate_class = excluded.senate_class, end = excluded.end, party = excluded.party,
 			  caucus = excluded.caucus, how = excluded.how, end_type = excluded.end_type,
 			  state_rank = excluded.state_rank, url = excluded.url, affiliations = excluded.affiliations,
-			  current = excluded.current, left_on = excluded.left_on, source = excluded.source,
-			  fetched_at = excluded.fetched_at`,
+			  current = excluded.current, left_on = excluded.left_on, unlisted_on = NULL,
+			  source = excluded.source, fetched_at = excluded.fetched_at`,
 			t.Person, t.Office, t.Body, t.State, nullInt(t.District), nullInt(t.Class), t.Start, t.End, nullable(t.Party),
 			nullable(t.Caucus), nullable(t.How), nullable(t.EndType), nullable(t.StateRank), nullable(t.URL),
 			orEmptyJSON(t.Affiliations), boolInt(t.Current), nullable(t.LeftOn), p.Source, at); err != nil {
@@ -371,11 +376,12 @@ func writeTerms(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error 
 	return nil
 }
 
-func deleteLeadership(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error {
-	for _, k := range p.DeleteLeadership {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM leadership WHERE person = ? AND title = ? AND start = ?`,
-			k.Person, k.Title, k.Start); err != nil {
-			return fmt.Errorf("delete leadership %v: %w", k, err)
+func unlistLeadership(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error {
+	for _, k := range p.UnlistLeadership {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE leadership SET unlisted_on = ? WHERE person = ? AND title = ? AND start = ? AND unlisted_on IS NULL`,
+			at, k.Person, k.Title, k.Start); err != nil {
+			return fmt.Errorf("unlist leadership %v: %w", k, err)
 		}
 	}
 	return nil
@@ -386,7 +392,8 @@ func writeLeadership(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) e
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO leadership (person, chamber, title, start, end, source, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (person, title, start) DO UPDATE SET
-			  chamber = excluded.chamber, end = excluded.end, source = excluded.source, fetched_at = excluded.fetched_at`,
+			  chamber = excluded.chamber, end = excluded.end, unlisted_on = NULL, source = excluded.source,
+			  fetched_at = excluded.fetched_at`,
 			l.Person, l.Chamber, l.Title, l.Start, nullable(l.End), p.Source, at); err != nil {
 			return fmt.Errorf("write leadership %v: %w", l.Key(), err)
 		}
@@ -411,11 +418,12 @@ func writeCommittees(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) e
 	return nil
 }
 
-func deleteSeats(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error {
-	for _, k := range p.DeleteSeats {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM committee_seats WHERE committee = ? AND person = ?`,
-			k.Committee, k.Person); err != nil {
-			return fmt.Errorf("delete seat %v: %w", k, err)
+func unlistSeats(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error {
+	for _, k := range p.UnlistSeats {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE committee_seats SET unlisted_on = ? WHERE committee = ? AND person = ? AND unlisted_on IS NULL`,
+			at, k.Committee, k.Person); err != nil {
+			return fmt.Errorf("unlist seat %v: %w", k, err)
 		}
 	}
 	return nil
@@ -426,8 +434,8 @@ func writeSeats(ctx context.Context, tx *sql.Tx, p RosterPlan, at string) error 
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO committee_seats (committee, person, side, rank, title, source, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (committee, person) DO UPDATE SET
-			  side = excluded.side, rank = excluded.rank, title = excluded.title, source = excluded.source,
-			  fetched_at = excluded.fetched_at`,
+			  side = excluded.side, rank = excluded.rank, title = excluded.title, unlisted_on = NULL,
+			  source = excluded.source, fetched_at = excluded.fetched_at`,
 			x.Committee, x.Person, x.Side, nullable(x.Rank), nullable(x.Title), p.Source, at); err != nil {
 			return fmt.Errorf("write seat %v: %w", x.Key(), err)
 		}

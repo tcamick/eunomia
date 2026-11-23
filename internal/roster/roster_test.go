@@ -2,6 +2,7 @@ package roster
 
 import (
 	"context"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -135,8 +136,8 @@ func TestDiff_AMemberMissingFromTheFileKeepsTheirHistory(t *testing.T) {
 	p := load(t, s, withoutMember(snap, "S000033"), "2026-12-01")
 	assert.Equal(t, []string{KindLeft}, kinds(p.Changes))
 	assert.Equal(t, "S000033", p.Changes[0].Person)
-	assert.Empty(t, p.DeleteTerms, "no term of a departed member is deleted")
-	assert.Empty(t, p.DeleteLeadership, "no role of a departed member is deleted")
+	assert.Empty(t, p.UnlistTerms, "a departed member's terms stay listed, as history")
+	assert.Empty(t, p.UnlistLeadership, "a departed member's roles stay listed, as history")
 
 	st, err := s.RosterState(context.Background())
 	require.NoError(t, err, "reading the stored roster")
@@ -244,15 +245,40 @@ func TestDiff_ANewChairIsRecorded(t *testing.T) {
 	assert.Equal(t, "HSED", p.Changes[0].Committee)
 }
 
-func TestDiff_ACorrectedTermStartReplacesTheOldRow(t *testing.T) {
+func TestDiff_ADepartedMembersCommitteeSeatsAreKeptAndDated(t *testing.T) {
+	t.Parallel()
+	// H001103 holds three seats in the fixture.
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+
+	p := load(t, s, withoutMember(snap, "H001103"), "2026-12-01")
+	assert.Equal(t, []string{KindLeft}, kinds(p.Changes), "a departure is one change, not one per seat")
+	assert.Len(t, p.UnlistSeats, 3, "each seat is dated, not deleted")
+
+	d, ok, err := s.PersonDetail(context.Background(), "H001103")
+	require.NoError(t, err, "reading the departed member's page")
+	require.True(t, ok, "the departed member's page still exists")
+	require.Len(t, d.Seats, 3, "the departed member's committee seats are kept")
+	for _, x := range d.Seats {
+		assert.NotEmpty(t, x.UnlistedOn, "seat on %s carries the date the source stopped listing it", x.Committee)
+	}
+}
+
+func TestDiff_ACorrectedTermStartKeepsTheOldRowAndSaysSo(t *testing.T) {
 	t.Parallel()
 	s := openStore(t)
 	snap := snapshot(t)
 	load(t, s, snap, today)
 	fixed := edit(t, snap, func(l *legislators.Legislator) { l.Terms[0].Start = "2007-01-05" })
 	p := load(t, s, fixed, today)
-	assert.Len(t, p.DeleteTerms, 1, "the source's correction replaces the old row")
-	assert.Empty(t, p.Changes, "a correction is not news")
+	assert.Len(t, p.UnlistTerms, 1, "the old term is dated, not deleted")
+	assert.Equal(t, []string{KindRecordCorrected}, kinds(p.Changes), "the correction is recorded")
+	d, _, err := s.PersonDetail(context.Background(), edited)
+	require.NoError(t, err, "reading the member's page")
+	for _, term := range d.Terms {
+		assert.NotEqual(t, snap.Legislators[0].Terms[0].Start, term.Start, "the page shows the source's corrected record only")
+	}
 }
 
 func TestDiff_ACommitteeTheSourceDropsIsKeptAndMarkedPast(t *testing.T) {
@@ -270,7 +296,66 @@ func TestDiff_ACommitteeTheSourceDropsIsKeptAndMarkedPast(t *testing.T) {
 	require.True(t, ok, "the committee's row stays")
 	assert.False(t, c.Current)
 	for k := range st.Seats {
-		assert.NotEqual(t, "HSBU", k.Committee, "its seats, a snapshot, are gone")
+		assert.NotEqual(t, "HSBU", k.Committee, "its seats are no longer listed")
+	}
+	listed := map[string]bool{}
+	for _, l := range snap.Legislators {
+		listed[l.ID.Bioguide] = true
+	}
+	for _, m := range snap.Membership["HSBU"] {
+		if !listed[m.Bioguide] {
+			continue // the membership fixture names people the trimmed members fixture lacks
+		}
+		d, _, err := s.PersonDetail(context.Background(), m.Bioguide)
+		require.NoError(t, err, "reading %s's page", m.Bioguide)
+		var dated bool
+		for _, x := range d.Seats {
+			if x.Committee == "HSBU" {
+				dated = x.UnlistedOn != ""
+			}
+		}
+		assert.True(t, dated, "%s's HSBU seat is kept, dated", m.Bioguide)
+	}
+}
+
+func TestDiff_AMemberMovedOffAndOntoACommitteeIsRecordedAndKept(t *testing.T) {
+	t.Parallel()
+	s := openStore(t)
+	snap := snapshot(t)
+	load(t, s, snap, today)
+	// The membership fixture names people the trimmed members fixture does
+	// not have; pick an HSBU member it does.
+	listed := map[string]bool{}
+	for _, l := range snap.Legislators {
+		listed[l.ID.Bioguide] = true
+	}
+	i := slices.IndexFunc(snap.Membership["HSBU"], func(m legislators.Member) bool { return listed[m.Bioguide] })
+	require.GreaterOrEqual(t, i, 0, "the fixture has a listed HSBU member")
+	who := snap.Membership["HSBU"][i].Bioguide
+
+	out := *snap
+	out.Membership = maps.Clone(snap.Membership)
+	out.Membership["HSBU"] = slices.Delete(slices.Clone(snap.Membership["HSBU"]), i, i+1)
+	p := load(t, s, &out, today)
+	assert.Equal(t, []string{KindSeatLeft}, kinds(p.Changes), "leaving a full committee is one change")
+	d, _, err := s.PersonDetail(context.Background(), who)
+	require.NoError(t, err, "reading the member's page")
+	var dated bool
+	for _, x := range d.Seats {
+		if x.Committee == "HSBU" {
+			dated = x.UnlistedOn != ""
+		}
+	}
+	assert.True(t, dated, "the HSBU seat is kept with the date it stopped being listed")
+
+	p = load(t, s, snap, "2026-12-01")
+	assert.Equal(t, []string{KindSeatJoined}, kinds(p.Changes), "listed again is one change")
+	d, _, err = s.PersonDetail(context.Background(), who)
+	require.NoError(t, err, "reading the member's page again")
+	for _, x := range d.Seats {
+		if x.Committee == "HSBU" {
+			assert.Empty(t, x.UnlistedOn, "a seat listed again is current again")
+		}
 	}
 }
 

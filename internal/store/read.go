@@ -34,7 +34,7 @@ func (s *Store) Sittings(ctx context.Context) ([]Sitting, error) {
 		SELECT p.id, p.display_name, p.last_name, t.body, t.state, t.district, t.senate_class,
 		       COALESCE(t.state_rank, ''), COALESCE(t.party, ''), COALESCE(t.caucus, ''), t.start, t.end,
 		       COALESCE(t.how, ''), x.file IS NOT NULL
-		FROM people p JOIN terms t ON t.person = p.id AND t.current = 1
+		FROM people p JOIN terms t ON t.person = p.id AND t.current = 1 AND t.unlisted_on IS NULL
 		LEFT JOIN portraits x ON x.person = p.id
 		WHERE p.in_congress = 1
 		ORDER BY t.state, t.body DESC, t.district, p.last_name`, func(r *sql.Rows) error {
@@ -73,8 +73,8 @@ func (s *Store) CurrentLeadership(ctx context.Context) ([]Role, error) {
 	err := eachRow(ctx, s.db, `
 		SELECT l.person, p.display_name, COALESCE(t.party, ''), l.chamber, l.title, l.start
 		FROM leadership l JOIN people p ON p.id = l.person
-		LEFT JOIN terms t ON t.person = p.id AND t.current = 1
-		WHERE l.end IS NULL AND p.in_congress = 1
+		LEFT JOIN terms t ON t.person = p.id AND t.current = 1 AND t.unlisted_on IS NULL
+		WHERE l.end IS NULL AND l.unlisted_on IS NULL AND p.in_congress = 1
 		ORDER BY l.chamber, l.title`, func(r *sql.Rows) error {
 		var x Role
 		if err := r.Scan(&x.Person, &x.Name, &x.Party, &x.Chamber, &x.Title, &x.Start); err != nil {
@@ -123,6 +123,9 @@ type PersonSeat struct {
 	Side      string `json:"side"`
 	Rank      int    `json:"rank,omitempty"`
 	Title     string `json:"title,omitempty"`
+	// UnlistedOn is when the source stopped listing the seat (an RFC 3339
+	// instant); empty while it is listed.
+	UnlistedOn string `json:"unlistedOn,omitempty"`
 }
 
 // PersonDetail is everything a person's page shows from the roster.
@@ -177,7 +180,7 @@ func (s *Store) PersonDetail(ctx context.Context, id string) (PersonDetail, bool
 	err = eachRow(ctx, tx, `
 		SELECT office, body, state, district, senate_class, start, end, COALESCE(party,''), COALESCE(caucus,''),
 		       COALESCE(how,''), COALESCE(state_rank,''), COALESCE(url,''), affiliations, current, COALESCE(left_on,'')
-		FROM terms WHERE person = ? ORDER BY start DESC`, func(r *sql.Rows) error {
+		FROM terms WHERE person = ? AND unlisted_on IS NULL ORDER BY start DESC`, func(r *sql.Rows) error {
 		var (
 			t               PersonTerm
 			district, class sql.NullInt64
@@ -195,7 +198,7 @@ func (s *Store) PersonDetail(ctx context.Context, id string) (PersonDetail, bool
 		return d, false, fmt.Errorf("read terms of %s: %w", id, err)
 	}
 
-	err = eachRow(ctx, tx, `SELECT chamber, title, start, COALESCE(end,'') FROM leadership WHERE person = ?
+	err = eachRow(ctx, tx, `SELECT chamber, title, start, COALESCE(end,'') FROM leadership WHERE person = ? AND unlisted_on IS NULL
 		ORDER BY end IS NOT NULL, start DESC`, func(r *sql.Rows) error {
 		x := Role{Person: id, Name: p.Display}
 		if err := r.Scan(&x.Chamber, &x.Title, &x.Start, &x.End); err != nil {
@@ -209,12 +212,13 @@ func (s *Store) PersonDetail(ctx context.Context, id string) (PersonDetail, bool
 	}
 
 	err = eachRow(ctx, tx, `
-		SELECT c.id, c.name, COALESCE(c.parent,''), c.chamber, s.side, COALESCE(s.rank,0), COALESCE(s.title,'')
+		SELECT c.id, c.name, COALESCE(c.parent,''), c.chamber, s.side, COALESCE(s.rank,0), COALESCE(s.title,''),
+		       COALESCE(s.unlisted_on,'')
 		FROM committee_seats s JOIN committees c ON c.id = s.committee
-		WHERE s.person = ? AND c.current = 1
-		ORDER BY COALESCE(c.parent, c.id), c.parent IS NOT NULL, c.name`, func(r *sql.Rows) error {
+		WHERE s.person = ? AND (c.current = 1 OR s.unlisted_on IS NOT NULL)
+		ORDER BY s.unlisted_on IS NOT NULL, COALESCE(c.parent, c.id), c.parent IS NOT NULL, c.name`, func(r *sql.Rows) error {
 		var x PersonSeat
-		if err := r.Scan(&x.Committee, &x.Name, &x.Parent, &x.Chamber, &x.Side, &x.Rank, &x.Title); err != nil {
+		if err := r.Scan(&x.Committee, &x.Name, &x.Parent, &x.Chamber, &x.Side, &x.Rank, &x.Title, &x.UnlistedOn); err != nil {
 			return err
 		}
 		d.Seats = append(d.Seats, x)
@@ -250,12 +254,12 @@ func (s *Store) Committees(ctx context.Context) ([]CommitteeSummary, error) {
 	var out []CommitteeSummary
 	err := eachRow(ctx, s.db, `
 		SELECT c.id, c.name, c.chamber, COALESCE(c.parent, ''), COALESCE(c.url, ''), COALESCE(c.jurisdiction, ''),
-		  (SELECT count(*) FROM committee_seats s WHERE s.committee = c.id),
+		  (SELECT count(*) FROM committee_seats s WHERE s.committee = c.id AND s.unlisted_on IS NULL),
 		  (SELECT count(*) FROM committees sub WHERE sub.parent = c.id AND sub.current = 1),
 		  COALESCE((SELECT p.display_name || '|' || p.id FROM committee_seats s JOIN people p ON p.id = s.person
-		            WHERE s.committee = c.id AND s.title IN `+chairTitles+` ORDER BY s.side, s.rank LIMIT 1), ''),
+		            WHERE s.committee = c.id AND s.unlisted_on IS NULL AND s.title IN `+chairTitles+` ORDER BY s.side, s.rank LIMIT 1), ''),
 		  COALESCE((SELECT p.display_name || '|' || p.id FROM committee_seats s JOIN people p ON p.id = s.person
-		            WHERE s.committee = c.id AND s.title = 'Ranking Member' LIMIT 1), '')
+		            WHERE s.committee = c.id AND s.unlisted_on IS NULL AND s.title = 'Ranking Member' LIMIT 1), '')
 		FROM committees c WHERE c.current = 1
 		ORDER BY c.chamber, COALESCE(c.parent, c.id), c.parent IS NOT NULL, c.name`, func(r *sql.Rows) error {
 		var (
@@ -295,9 +299,9 @@ func (s *Store) CommitteeMembers(ctx context.Context, id string) ([]CommitteeMem
 		SELECT s.person, p.display_name, COALESCE(t.party, ''), COALESCE(t.state, ''), s.side, COALESCE(s.rank, 0),
 		       COALESCE(s.title, ''), x.file IS NOT NULL
 		FROM committee_seats s JOIN people p ON p.id = s.person
-		LEFT JOIN terms t ON t.person = p.id AND t.current = 1
+		LEFT JOIN terms t ON t.person = p.id AND t.current = 1 AND t.unlisted_on IS NULL
 		LEFT JOIN portraits x ON x.person = p.id
-		WHERE s.committee = ?
+		WHERE s.committee = ? AND s.unlisted_on IS NULL
 		ORDER BY s.side, COALESCE(s.rank, 999), p.last_name`, func(r *sql.Rows) error {
 		var m CommitteeMember
 		if err := r.Scan(&m.Person, &m.Name, &m.Party, &m.State, &m.Side, &m.Rank, &m.Title, &m.Portrait); err != nil {
