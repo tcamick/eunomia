@@ -106,6 +106,7 @@
   }
   label {
     display: grid;
+    min-inline-size: 0;
     gap: 0.25rem;
     font-weight: 600;
     font-size: 0.875rem;
