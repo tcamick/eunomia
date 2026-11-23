@@ -179,7 +179,7 @@ func writeAtomic(path string, b []byte) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("write portrait: %w", err)
 	}
-	if err := os.Chmod(tmp.Name(), 0o640); err != nil {
+	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
 		return fmt.Errorf("write portrait: %w", err)
 	}
 	if err := os.Rename(tmp.Name(), path); err != nil {

@@ -21,6 +21,9 @@ import (
 	"github.com/tcamick/eunomia/internal/store"
 )
 
+// keySources is the JSON key every roster response carries its source lines under.
+const keySources = "sources"
+
 // RosterReader is what the roster pages read; *store.Store implements it.
 type RosterReader interface {
 	Sittings(ctx context.Context) ([]store.Sitting, error)
@@ -94,7 +97,7 @@ func (a *api) congressHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, map[string]any{
 		"chambers":      congress.Summarize(ms, roles),
-		"sources":       a.rosterSource(ctx),
+		keySources:      a.rosterSource(ctx),
 		"apportionment": SourceLine{Name: "Census Bureau, 2020 apportionment", URL: geo.ApportionmentSource},
 	})
 }
@@ -110,7 +113,7 @@ func (a *api) membersHandler(w http.ResponseWriter, r *http.Request) {
 	for _, m := range ms {
 		out = append(out, member(m))
 	}
-	writeJSON(w, map[string]any{"members": out, "sources": a.rosterSource(ctx), "states": geo.All()})
+	writeJSON(w, map[string]any{"members": out, keySources: a.rosterSource(ctx), "states": geo.All()})
 }
 
 // PersonTerm is a term on a person's page, with its office in words.
@@ -207,7 +210,7 @@ func (a *api) committeesHandler(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	writeJSON(w, map[string]any{"committees": nonNil(cs), "sources": a.rosterSource(ctx)})
+	writeJSON(w, map[string]any{"committees": nonNil(cs), keySources: a.rosterSource(ctx)})
 }
 
 func (a *api) committeeHandler(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +261,7 @@ func (a *api) committeeHandler(w http.ResponseWriter, r *http.Request) {
 		seats = append(seats, seat{CommitteeMember: m, PartyCode: congress.PartyCode(m.Party)})
 	}
 	writeJSON(w, map[string]any{"committee": this, "parent": parent, "subcommittees": subs, "members": seats,
-		"sources": a.rosterSource(ctx)})
+		keySources: a.rosterSource(ctx)})
 }
 
 // SearchResult is one hit.

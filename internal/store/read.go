@@ -228,18 +228,18 @@ func (s *Store) PersonDetail(ctx context.Context, id string) (PersonDetail, bool
 
 // CommitteeSummary is a committee in the list.
 type CommitteeSummary struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Chamber  string `json:"chamber"`
-	Parent   string `json:"parent,omitempty"`
-	Members  int    `json:"members"`
-	Chair    string `json:"chair,omitempty"`
-	ChairID  string `json:"chairId,omitempty"`
-	Ranking  string `json:"ranking,omitempty"`
-	RankID   string `json:"rankingId,omitempty"`
-	Subs     int    `json:"subcommittees"`
-	URL      string `json:"url,omitempty"`
-	Juris    string `json:"jurisdiction,omitempty"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Chamber string `json:"chamber"`
+	Parent  string `json:"parent,omitempty"`
+	Members int    `json:"members"`
+	Chair   string `json:"chair,omitempty"`
+	ChairID string `json:"chairId,omitempty"`
+	Ranking string `json:"ranking,omitempty"`
+	RankID  string `json:"rankingId,omitempty"`
+	Subs    int    `json:"subcommittees"`
+	URL     string `json:"url,omitempty"`
+	Juris   string `json:"jurisdiction,omitempty"`
 }
 
 // leadTitles are the titles that name a committee's chair or ranking member.

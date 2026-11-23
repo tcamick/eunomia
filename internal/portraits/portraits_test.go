@@ -106,8 +106,9 @@ func TestRun_RefusesWhatIsNotAJPEG(t *testing.T) {
 
 func TestRun_StopsAfterFiveFailuresInARow(t *testing.T) {
 	t.Parallel()
-	var due []store.PortraitState
-	for _, id := range []string{"A000001", "A000002", "A000003", "A000004", "A000005", "A000006", "A000007"} {
+	ids := []string{"A000001", "A000002", "A000003", "A000004", "A000005", "A000006", "A000007"}
+	due := make([]store.PortraitState, 0, len(ids))
+	for _, id := range ids {
 		due = append(due, store.PortraitState{Person: id})
 	}
 	st := &fakeStore{due: due}

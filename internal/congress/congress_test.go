@@ -115,7 +115,7 @@ func TestSummarize_LeadersInTheFixedOrder(t *testing.T) {
 		{Person: "s", Chamber: House, Title: "Speaker of the House"},
 	}
 	cs := Summarize(nil, roles)
-	var senateTitles []string
+	senateTitles := make([]string, 0, len(cs[0].Leaders))
 	for _, r := range cs[0].Leaders {
 		senateTitles = append(senateTitles, r.Title)
 	}

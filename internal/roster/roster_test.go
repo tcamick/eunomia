@@ -73,13 +73,16 @@ func withoutMember(snap *legislators.Snapshot, bioguide string) *legislators.Sna
 	return &out
 }
 
-// edit returns a copy of snap with fn applied to one member's deep copy.
-func edit(t *testing.T, snap *legislators.Snapshot, bioguide string, fn func(*legislators.Legislator)) *legislators.Snapshot {
+// edited is the fixture member the edit tests change.
+const edited = "W000800"
+
+// edit returns a copy of snap with fn applied to a deep copy of the edited member.
+func edit(t *testing.T, snap *legislators.Snapshot, fn func(*legislators.Legislator)) *legislators.Snapshot {
 	t.Helper()
 	out := *snap
 	out.Legislators = slices.Clone(snap.Legislators)
 	for i, l := range out.Legislators {
-		if l.ID.Bioguide == bioguide {
+		if l.ID.Bioguide == edited {
 			l.Terms = slices.Clone(l.Terms)
 			l.Leadership = slices.Clone(l.Leadership)
 			fn(&l)
@@ -87,12 +90,12 @@ func edit(t *testing.T, snap *legislators.Snapshot, bioguide string, fn func(*le
 			return &out
 		}
 	}
-	t.Fatalf("no member %s in the fixture", bioguide)
+	t.Fatalf("no member %s in the fixture", edited)
 	return nil
 }
 
 func kinds(cs []store.Change) []string {
-	var out []string
+	out := make([]string, 0, len(cs))
 	for _, c := range cs {
 		out = append(out, c.Kind)
 	}
@@ -186,7 +189,7 @@ func TestDiff_APartySwitchIsOneChange(t *testing.T) {
 	s := openStore(t)
 	snap := snapshot(t)
 	load(t, s, snap, today)
-	switched := edit(t, snap, "W000800", func(l *legislators.Legislator) {
+	switched := edit(t, snap, func(l *legislators.Legislator) {
 		last := len(l.Terms) - 1
 		l.Terms[last].Party = "Independent"
 	})
@@ -201,13 +204,13 @@ func TestDiff_LeadershipGainedAndLost(t *testing.T) {
 	snap := snapshot(t)
 	load(t, s, snap, today)
 
-	gained := edit(t, snap, "W000800", func(l *legislators.Legislator) {
+	gained := edit(t, snap, func(l *legislators.Legislator) {
 		l.Leadership = append(l.Leadership, legislators.LeadershipRole{Title: "Senate Example Whip", Chamber: "senate", Start: "2026-11-20"})
 	})
 	p := load(t, s, gained, today)
 	require.Equal(t, []string{KindLeadershipGained}, kinds(p.Changes))
 
-	ended := edit(t, gained, "W000800", func(l *legislators.Legislator) {
+	ended := edit(t, gained, func(l *legislators.Legislator) {
 		l.Leadership[len(l.Leadership)-1].End = "2026-11-21"
 	})
 	p = load(t, s, ended, today)
@@ -246,7 +249,7 @@ func TestDiff_ACorrectedTermStartReplacesTheOldRow(t *testing.T) {
 	s := openStore(t)
 	snap := snapshot(t)
 	load(t, s, snap, today)
-	fixed := edit(t, snap, "W000800", func(l *legislators.Legislator) { l.Terms[0].Start = "2007-01-05" })
+	fixed := edit(t, snap, func(l *legislators.Legislator) { l.Terms[0].Start = "2007-01-05" })
 	p := load(t, s, fixed, today)
 	assert.Len(t, p.DeleteTerms, 1, "the source's correction replaces the old row")
 	assert.Empty(t, p.Changes, "a correction is not news")

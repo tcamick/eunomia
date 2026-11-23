@@ -76,4 +76,3 @@ func (s *Store) PortraitFile(ctx context.Context, person string) (string, bool, 
 	}
 	return file.String, file.Valid, nil
 }
-
