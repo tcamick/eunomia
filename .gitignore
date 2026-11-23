@@ -1,0 +1,18 @@
+# Local state of a run: the SQLite file and mirrored portraits (make run, make job)
+/data/
+# Build output and pinned tools
+/bin/
+/cover.out
+/web/node_modules/
+/web/dist/*
+!/web/dist/.gitkeep
+/scripts/geo/node_modules/
+
+# Claude Code's worktrees (claude --worktree): one per parallel session
+/.claude/worktrees/
+.DS_Store
+
+# Local secrets; never committed
+.env
+.env.*
+!.env.example

@@ -1,0 +1,1 @@
+Read and follow `AGENTS.md` in this directory. It describes the project (a personal dashboard and learning center for US politics), the rules for facts and even-handedness, how outside text is handled, and the workflow every code change follows.
