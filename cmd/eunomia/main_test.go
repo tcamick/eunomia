@@ -55,13 +55,15 @@ func TestRun_Commands(t *testing.T) {
 func TestRun_JobRecordsItsRunAndPushes(t *testing.T) {
 	t.Parallel()
 	var (
-		mu    sync.Mutex
-		paths []string
+		mu     sync.Mutex
+		paths  []string
+		bodies [][]byte
 	)
 	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.Copy(io.Discard, r.Body)
+		b, _ := io.ReadAll(r.Body)
 		mu.Lock()
 		paths = append(paths, r.Method+" "+r.URL.Path)
+		bodies = append(bodies, b)
 		mu.Unlock()
 	}))
 	defer gw.Close()
@@ -84,6 +86,8 @@ func TestRun_JobRecordsItsRunAndPushes(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	assert.Equal(t, []string{"PUT /metrics/job/eunomia-batch/batch/portraits"}, paths, "one push, at the end, grouped by the job")
+	require.Len(t, bodies, 1, "one push body")
+	assert.NotContains(t, string(bodies[0]), "eunomia_roster_changes_total", "the portraits push carries no roster metric")
 }
 
 func TestRun_JobTakesOneName(t *testing.T) {

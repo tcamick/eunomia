@@ -11,7 +11,7 @@ k8s/app/jobs.yaml              one CronJob per job
 k8s/app/storage.yaml           the data volume; from E2 the backup volume on seabass
 k8s/app/network.yaml           NetworkPolicy, in and out
 k8s/app/ingress.yaml           Tailscale Ingress: https://eunomia.<tailnet>.ts.net
-k8s/app/claude-ops.yaml        read-only Role for the claude-ops account
+k8s/app/claude-ops.yaml        Role for the claude-ops account: read, and create Jobs
 k8s/monitoring/                PodMonitor and the Grafana dashboard ConfigMap (path ./k8s/monitoring)
 ```
 The `GitRepository` and the two `Kustomization`s that point here (`eunomia`, and `eunomia-monitoring` after it and after `beholder`) are in Plutus (`deploy/k8s/clusters/neptune/eunomia.yaml`) until the cluster has its own repository.
@@ -29,7 +29,7 @@ The `GitRepository` and the two `Kustomization`s that point here (`eunomia`, and
 8. **Requests and limits** on every container; a memory limit always, no CPU limit.
 9. **Probes:** the server has readiness and liveness on `/healthz`.
 10. **Monitoring objects need beholder's CRDs.** They live in `k8s/monitoring/`, their own Flux Kustomization depending on `beholder`, so a broken monitoring stack never holds up a deploy.
-11. **`claude-ops` reads; it does not write,** and it cannot read Secrets (`k8s/app/claude-ops.yaml`, modelled on beholder's).
+11. **`claude-ops` reads, and may only create Jobs,** and it cannot read Secrets (`k8s/app/claude-ops.yaml`, modelled on beholder's). Creating Jobs lets a session run a CronJob now (`kubectl create job --from=cronjob/<name>`); the owner granted it on 2026-11-23. Any wider write is the owner's decision.
 12. Render before pushing: `kubectl kustomize k8s/app` and `kubectl kustomize k8s/monitoring` must succeed. The reviewer runs both.
 
 ## Definition of done

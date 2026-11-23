@@ -163,9 +163,12 @@ func openStore(ctx context.Context, dataDir string) (*store.Store, error) {
 // deps are what the jobs are built from. Listing the jobs needs only their
 // names, so a zero deps builds them too.
 type deps struct {
-	st      *store.Store
-	get     *fetch.Client
+	st  *store.Store
+	get *fetch.Client
+	// reg gets the metrics of the job named run, the one this pod runs; a
+	// pushed family belongs to the job that ran (go-conventions, Metrics).
 	reg     prometheus.Registerer
+	run     string
 	dataDir string
 	// legislatorsURL and portraitsURL are the sources' directories (flags).
 	legislatorsURL, portraitsURL string
@@ -191,7 +194,11 @@ func buildJobs(d deps) ([]jobs.Job, error) {
 		d.portraitsURL = config.DefaultPortraitsURL
 	}
 	src := legislators.NewClient(d.get, d.legislatorsURL, legislators.MinMembers)
-	r, err := roster.NewJob(src, d.st, d.legislatorsURL, time.Now, d.reg)
+	var rosterReg prometheus.Registerer
+	if d.run == "roster" {
+		rosterReg = d.reg
+	}
+	r, err := roster.NewJob(src, d.st, d.legislatorsURL, time.Now, rosterReg)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +220,7 @@ func runJob(ctx context.Context, cfg *config.Config, st *store.Store, name strin
 		log.Error().Err(err).Msg("Could not build the fetch client")
 		return exitFail
 	}
-	js, err := buildJobs(deps{st: st, get: client, reg: reg, dataDir: cfg.DataDir,
+	js, err := buildJobs(deps{st: st, get: client, reg: reg, run: name, dataDir: cfg.DataDir,
 		legislatorsURL: cfg.LegislatorsURL, portraitsURL: cfg.PortraitsURL})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not build the jobs")
