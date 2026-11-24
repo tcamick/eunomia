@@ -18,4 +18,4 @@ resources:
 images:
   - name: eunomia
     newName: localhost:5000/eunomia
-    digest: sha256:922a97da3fd26b2183e2f1b99cb002bbbb991ed04794159c3d62a6ceb321c336  # 3cb2abda261d
+    digest: sha256:ba36c082ca04ca47b852646ee9f7d2fa5276274f2286523a01d4f79cb775214c  # 395df690c69f
