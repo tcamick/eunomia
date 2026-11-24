@@ -388,7 +388,8 @@ func TestJob_ATitleIsReadAgainstTheMembersSittingWhenTheStoryRan(t *testing.T) {
 		[3]string{"a", "Rep. Davis objects", "Fri, 20 Nov 2026 20:00:00 +0000"},
 		[3]string{"b", "Rep. Davis objects again", "Sun, 22 Nov 2026 20:00:00 +0000"},
 		[3]string{"c", "Rep. Smith speaks", "Fri, 20 Nov 2026 20:00:00 +0000"},
-		[3]string{"d", "Rep. Smith speaks again", "Sun, 22 Nov 2026 20:00:00 +0000"})
+		[3]string{"d", "Rep. Smith speaks again", "Sun, 22 Nov 2026 20:00:00 +0000"},
+		[3]string{"e", "Rep. Smith on the day of the change", "Sat, 21 Nov 2026 20:00:00 +0000"})
 	j, err := NewJob([]Feed{feed}, feeds, s, func() time.Time { return t0 }, nil)
 	require.NoError(t, err, "building the job")
 	require.NoError(t, j.Run(ctx), "running the job")
@@ -402,4 +403,5 @@ func TestJob_ATitleIsReadAgainstTheMembersSittingWhenTheStoryRan(t *testing.T) {
 		"the Smith sitting that day")
 	assert.Equal(t, []store.StoryMention{{Kind: "person", Ref: "S000102", Name: "Sue Smith"}}, got["Rep. Smith speaks again"],
 		"the new Smith, for a story after the change")
+	assert.Empty(t, got["Rep. Smith on the day of the change"], "both Smiths sat that day, the old one's last: no one")
 }

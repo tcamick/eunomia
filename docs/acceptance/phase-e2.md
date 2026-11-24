@@ -77,6 +77,14 @@ All fixed:
 5. `k8s/app/backup.yaml` is named in k8s-conventions' Layout (amended), rather than splitting the seabass pieces across `storage.yaml` and `jobs.yaml`.
 Nit: the provenance-refusal cases are parallel subtests, each on its own store.
 
+## Review findings (sixth pass, 2026-11-23)
+Fixed:
+1. *Blocking:* "then-Sen. X", "the late Sen. X" and "former U.S. Sen. X" still tagged a sitting member. "then-", "late", "onetime" and "retired" are refused too, and "U.S." is looked past; three `TestTag` cases (failing before), plus "U.S. Sen. Sanders", which still tags. ADR 0008 amended.
+2. On the day one Congress ends and the next begins, only the new members were matched. A term now runs through its end day, so both sit and a shared surname names no one; a boundary-day story in `TestJob_ATitleIsReadAgainstTheMembersSittingWhenTheStoryRan` (failing before).
+3. The looked-at checks done by reading rather than looking (keyboard on the member, state and status pages; reduced motion; the state page in light at laptop width) are listed below as the owner's, after the deploy.
+Nits: "the Mississippi River" no longer tags Mississippi (a case); a backup clears every partial directory a dead run left (`TestRun_ClearsPartialDirectoriesLeftByRunsThatDied`); the roadmap row.
+For the owner (no rule broken): a state's page lists stories about its members only while they sit, so a departed senator's stories stay on the senator's page but leave the state's (ADR 0008 says so); and the labels are each outlet's own words (the plan's rule), which do not say where an outlet stands.
+
 ## Review findings not fixed, and why
 -
 
@@ -91,4 +99,4 @@ Nit: the provenance-refusal cases are parallel subtests, each on its own store.
 - Keyboard only, the news page · Claude · 2026-11-23 · headless Chrome driven over the DevTools protocol with real key events: 24 tab stops in reading order (skip link, sections, the two filters, the two checkboxes, then each headline, Mark read, Save), every one with a visible focus ring; Space on "Mark read" sets it (`aria-pressed="true"`) and announces "Marked read", again clears it ("Marked unread"); Space on "Unread only" filters and puts `?unread=1` in the address
 - Sanders's page at 360 px, light: "In the news", its link and the source lines wrap, no sideways scroll · Claude · 2026-11-23 · headless Chrome
 - Keyboard on the member and state pages' "In the news": the same `StoryList` (headline link, mention links, Read and Save buttons) as `/news`, checked there; the section adds one link above the list · Claude · 2026-11-23 · by reading the components
-- The owner's phone, and keyboard on the owner's own laptop: pending, the owner, after the deploy
+- The owner's phone; keyboard on the owner's own laptop, including the member, state and status pages; reduced motion turned on; the state page in light at laptop width: pending, the owner, after the deploy

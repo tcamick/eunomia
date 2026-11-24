@@ -126,8 +126,16 @@ func (j *Job) Run(ctx context.Context) error {
 	final := filepath.Join(j.Dest, day)
 	recoverReplaced(final)
 
-	if err := os.RemoveAll(partial); err != nil {
-		return fmt.Errorf("backup: clear %s: %w", partial, err)
+	// Every partial directory is a run that died (the lock is ours): today's
+	// and any earlier one, which nothing else would ever clear.
+	stale, err := filepath.Glob(filepath.Join(j.Dest, partialStart+"*"))
+	if err != nil {
+		return fmt.Errorf("backup: %w", err)
+	}
+	for _, dir := range stale {
+		if err := os.RemoveAll(dir); err != nil {
+			return fmt.Errorf("backup: clear %s: %w", dir, err)
+		}
 	}
 	if err := os.MkdirAll(partial, dirMode); err != nil {
 		return fmt.Errorf("backup: %w", err)

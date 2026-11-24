@@ -245,6 +245,21 @@ func TestRun_TheSameInputsGiveTheSameBackup(t *testing.T) {
 	assert.Equal(t, first, readManifest(t, filepath.Join(dest, "2026-11-16")), "the same backup")
 }
 
+// A run killed mid-copy (its deadline, out of memory) leaves its partial
+// directory; the next run, holding the lock, clears every one.
+func TestRun_ClearsPartialDirectoriesLeftByRunsThatDied(t *testing.T) {
+	t.Parallel()
+	data, dest := fixture(t)
+	write(t, filepath.Join(dest, ".partial-2026-11-02", "eunomia.sqlite"), "half")
+	write(t, filepath.Join(dest, ".partial-2026-11-15", "eunomia.sqlite"), "half")
+
+	require.NoError(t, job(data, dest, &fakeDB{}).Run(context.Background()), "taking a backup")
+
+	assert.NoDirExists(t, filepath.Join(dest, ".partial-2026-11-02"), "an old partial is cleared")
+	assert.NoDirExists(t, filepath.Join(dest, ".partial-2026-11-15"), "and yesterday's")
+	assert.FileExists(t, filepath.Join(dest, "2026-11-16", "manifest.json"), "today's backup is taken")
+}
+
 func TestRun_RecoversADaySetAsideByACrash(t *testing.T) {
 	t.Parallel()
 	data, dest := fixture(t)

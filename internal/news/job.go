@@ -188,13 +188,14 @@ func (j *Job) retag(ctx context.Context) (int, error) {
 }
 
 // sittingOn returns the members whose term ran on day (YYYY-MM-DD): from its
-// start up to, not including, its end. Each member once: on the day one
-// term ends and the next begins, the new one.
+// start through its end. On the day one Congress ends and the next begins,
+// both sets sit, so a surname they share names no one that day. Each
+// member once.
 func sittingOn(terms []store.NamedTerm, day string) []store.NamedMember {
 	byID := map[string]store.NamedMember{}
 	var order []string
 	for _, t := range terms {
-		if t.Start > day || day >= t.End {
+		if t.Start > day || day > t.End {
 			continue
 		}
 		if _, seen := byID[t.ID]; !seen {

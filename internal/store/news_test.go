@@ -203,8 +203,8 @@ func TestNamedTerms_ListsTheTermsRunningSinceADayWithNamesAndSeat(t *testing.T) 
 		NamedMember: NamedMember{ID: "A000001", First: "Ann", Last: "Able", Display: "Ann Able", Body: "house", State: "OH"},
 		Start:       "2025-01-03", End: "2027-01-03",
 	}}, got, "the running term with the member's names and seat")
-	got, err = s.NamedTerms(ctx, time.Date(2027, 1, 3, 0, 0, 0, 0, time.UTC))
-	require.NoError(t, err, "listing terms from the day it ends")
+	got, err = s.NamedTerms(ctx, time.Date(2027, 1, 4, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err, "listing terms from the day after it ends")
 	assert.Empty(t, got, "a term over by then is left out")
 	people, err := s.PeopleNames(ctx)
 	require.NoError(t, err, "listing everyone's names")

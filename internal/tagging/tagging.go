@@ -235,8 +235,8 @@ func (m *Matcher) tagStates(text string) map[string]bool {
 		for _, at := range wordIndexes(masked, p.name) {
 			end := at + len(p.name)
 			rest := masked[end:]
-			if strings.HasPrefix(rest, " City") {
-				continue // Kansas City, New York City, Oklahoma City: a city
+			if strings.HasPrefix(rest, " City") || strings.HasPrefix(rest, " River") {
+				continue // Kansas City, the Mississippi River: a city or a river
 			}
 			if ambiguous[p.name] && !stateContext(masked[:at], rest) {
 				continue
@@ -305,15 +305,20 @@ func nameFollows(after string) bool {
 // notSitting reports whether the text just before a title makes it someone
 // other than a sitting member of Congress.
 func notSitting(before string) bool {
-	if strings.HasSuffix(strings.ToLower(before), "ex-") {
+	lower := strings.ToLower(before)
+	if strings.HasSuffix(lower, "ex-") || strings.HasSuffix(lower, "then-") {
 		return true
 	}
-	fields := strings.Fields(before)
+	fields := strings.Fields(lower)
+	// "former U.S. Sen. X": look past the country to the word before it.
+	if n := len(fields); n > 0 && (fields[n-1] == "u.s." || fields[n-1] == "u.s") {
+		fields = fields[:n-1]
+	}
 	if len(fields) == 0 {
 		return false
 	}
-	switch strings.ToLower(fields[len(fields)-1]) {
-	case "state", "former":
+	switch fields[len(fields)-1] {
+	case "state", "former", "late", "onetime", "retired":
 		return true
 	}
 	return false

@@ -132,7 +132,7 @@ type NamedMember struct {
 }
 
 // NamedTerm is a member's term as tagging reads it: who sat, for which
-// seat, from Start up to (not including) End, both YYYY-MM-DD. End is the
+// seat, from Start through End, both YYYY-MM-DD. End is the
 // day the source stopped listing the member, if earlier than the
 // scheduled end.
 type NamedTerm struct {
@@ -151,7 +151,7 @@ func (s *Store) NamedTerms(ctx context.Context, since time.Time) ([]NamedTerm, e
 		SELECT p.id, p.first_name, COALESCE(p.nickname, ''), p.last_name, p.display_name, t.body, t.state,
 		       t.start, substr(COALESCE(t.left_on, t."end"), 1, 10) AS until
 		FROM people p JOIN terms t ON t.person = p.id
-		WHERE t.unlisted_on IS NULL AND substr(COALESCE(t.left_on, t."end"), 1, 10) > ?
+		WHERE t.unlisted_on IS NULL AND substr(COALESCE(t.left_on, t."end"), 1, 10) >= ?
 		ORDER BY p.id, t.start`, func(r *sql.Rows) error {
 		var m NamedTerm
 		if err := r.Scan(&m.ID, &m.First, &m.Nickname, &m.Last, &m.Display, &m.Body, &m.State, &m.Start, &m.End); err != nil {
