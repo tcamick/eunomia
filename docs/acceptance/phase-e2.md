@@ -24,7 +24,8 @@ Each feed was fetched once (`eunomia/dev` User-Agent) and its terms read; three 
 - **Go module:** `go.yaml.in/yaml/v3` v3.0.5, already in the module graph through the Prometheus client, is now a direct dependency for `config/sources.yaml`; no new code enters the build.
 
 ## Open questions found during the phase
--
+- A missing disk: with seabass unplugged the backup pod cannot start, so the status page shows the backup *Never ran / Overdue* (26 hours after its last success); with the disk present and its marker gone, *Failed*. The owner, 2026-11-23: either meets the line; the live check records which it saw.
+- Reviews: after five passes, each finding another tagging edge case, the owner chose one more review and then landing, with should-fix findings of that pass fixed without a further pass (2026-11-23).
 
 ## Review findings (first pass, 2026-11-23)
 All fixed:
