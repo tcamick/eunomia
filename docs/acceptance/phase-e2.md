@@ -1,6 +1,6 @@
 # Phase E2 — News acceptance
 
-Branch: `feat/phase-e2-news` · Started: 2026-11-23 · Merged:
+Branch: `feat/phase-e2-news` · Started: 2026-11-23 · Merged: 2026-11-23 (the owner: "Land, check live")
 
 Roadmap `docs/roadmap.md`, E2; plan `docs/implementation-plan.md` §4, E2; PRD §3, §6.6, §7, §8.
 
