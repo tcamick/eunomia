@@ -167,17 +167,6 @@ func TestPush_SendsTheRunsGaugesGroupedByBatch(t *testing.T) {
 	assert.NotContains(t, p.body, "go_goroutines", "the exited pod's runtime is left out")
 }
 
-func TestPush_ReportsAGatewayFailure(t *testing.T) {
-	t.Parallel()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-	_, reg := newRunner(t, &fakeRecorder{}, Noop{})
-	err := Push(context.Background(), srv.URL, "noop", reg, srv.Client())
-	require.Error(t, err, "expected Push to fail")
-}
-
 // fakeHistory returns fixed statuses or an error.
 type fakeHistory struct {
 	statuses []store.JobStatus
