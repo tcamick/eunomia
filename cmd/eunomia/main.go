@@ -24,12 +24,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 
+	curated "github.com/tcamick/eunomia/config"
+	"github.com/tcamick/eunomia/internal/backup"
 	"github.com/tcamick/eunomia/internal/config"
 	"github.com/tcamick/eunomia/internal/fetch"
 	"github.com/tcamick/eunomia/internal/httpapi"
 	"github.com/tcamick/eunomia/internal/jobs"
 	"github.com/tcamick/eunomia/internal/legislators"
 	"github.com/tcamick/eunomia/internal/logging"
+	"github.com/tcamick/eunomia/internal/news"
 	"github.com/tcamick/eunomia/internal/portraits"
 	"github.com/tcamick/eunomia/internal/roster"
 	"github.com/tcamick/eunomia/internal/store"
@@ -172,12 +175,30 @@ type deps struct {
 	dataDir string
 	// legislatorsURL and portraitsURL are the sources' directories (flags).
 	legislatorsURL, portraitsURL string
+	// backupDir is -backup-dir: the backup jobs' directory on seabass.
+	backupDir string
 }
 
 // fetchSources are every source a job may fetch: the values of the fetch
-// metric's source label.
-var fetchSources = []string{
-	legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership, portraits.Source,
+// metric's source label, bounded by the code and config/sources.yaml.
+func fetchSources(feeds []news.Feed) []string {
+	out := make([]string, 0, 4+len(feeds))
+	out = append(out, legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership, portraits.Source)
+	for _, f := range feeds {
+		out = append(out, f.ID)
+	}
+	return out
+}
+
+// loadFeeds reads and validates config/sources.yaml (embedded); a bad list
+// stops the process at startup (AGENTS.md, Structure rules).
+func loadFeeds() ([]news.Feed, error) {
+	feeds, err := news.LoadFeeds(curated.FS,
+		legislators.SourceLegislators, legislators.SourceCommittees, legislators.SourceMembership, portraits.Source)
+	if err != nil {
+		return nil, fmt.Errorf("config/sources.yaml: %w", err)
+	}
+	return feeds, nil
 }
 
 // fetchPace is the gap between two requests to one host. The sources are
@@ -202,10 +223,58 @@ func buildJobs(d deps) ([]jobs.Job, error) {
 	if err != nil {
 		return nil, err
 	}
+	var newsReg prometheus.Registerer
+	if d.run == news.JobName {
+		newsReg = d.reg
+	}
+	feeds, err := loadFeeds()
+	if err != nil {
+		return nil, err
+	}
+	n, err := news.NewJob(feeds, d.get, d.st, time.Now, newsReg)
+	if err != nil {
+		return nil, err
+	}
+	var snap backup.Snapshotter
+	if d.st != nil {
+		snap = d.st
+	}
 	return []jobs.Job{
 		r,
 		portraits.NewJob(d.get, d.st, d.portraitsURL, filepath.Join(d.dataDir, portraitDir), time.Now),
+		n,
+		&backup.Job{DataDir: d.dataDir, Dest: d.backupDir, DB: snap, Now: time.Now},
+		&backup.RestoreCheck{Dest: d.backupDir, Open: openVerifier, Now: time.Now},
 	}, nil
+}
+
+// openVerifier opens and migrates a restored copy of the database, as the
+// server opens its own.
+func openVerifier(ctx context.Context, path string) (backup.Verifier, error) {
+	st, err := store.Open(ctx, path, time.Now)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := st.Migrate(ctx); err != nil {
+		_ = st.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	return st, nil
+}
+
+// jobMaxAge returns how long each job may go without a success before the
+// status page calls it overdue: its CronJob's interval (k8s/app) and some
+// slack, so a job that fails, or whose pod never starts (the backup's, with
+// seabass unplugged), shows within a day. Every registered job has one
+// (TestJobs_EachHasACronJobAndALimit).
+func jobMaxAge() map[string]time.Duration {
+	return map[string]time.Duration{
+		roster.JobName:        26 * time.Hour,
+		portraits.JobName:     26 * time.Hour,
+		news.JobName:          90 * time.Minute,
+		backup.JobName:        26 * time.Hour,
+		backup.RestoreJobName: 7*24*time.Hour + 2*time.Hour,
+	}
 }
 
 // portraitDir is the portraits' directory inside the data directory.
@@ -215,13 +284,18 @@ const portraitDir = "portraits"
 func runJob(ctx context.Context, cfg *config.Config, st *store.Store, name string) int {
 	log := zerolog.Ctx(ctx)
 	reg := prometheus.NewRegistry()
-	client, err := fetch.New(fetch.Options{Sources: fetchSources, Pace: fetchPace, Registerer: reg})
+	feeds, err := loadFeeds()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not load the feeds")
+		return exitFail
+	}
+	client, err := fetch.New(fetch.Options{Sources: fetchSources(feeds), Pace: fetchPace, Registerer: reg})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not build the fetch client")
 		return exitFail
 	}
 	js, err := buildJobs(deps{st: st, get: client, reg: reg, run: name, dataDir: cfg.DataDir,
-		legislatorsURL: cfg.LegislatorsURL, portraitsURL: cfg.PortraitsURL})
+		legislatorsURL: cfg.LegislatorsURL, portraitsURL: cfg.PortraitsURL, backupDir: cfg.BackupDir})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not build the jobs")
 		return exitFail
@@ -275,9 +349,14 @@ func serve(ctx context.Context, cfg *config.Config, st *store.Store, registry *j
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		jobs.NewHistoryCollector(st, registry),
 	)
+	feeds, err := loadFeeds()
+	if err != nil {
+		return err
+	}
 	app, err := httpapi.New(httpapi.Options{
 		Store: st, UI: web.FS(), Version: version.Version, Now: time.Now, Log: *log, Registerer: reg,
-		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(),
+		Roster: st, PortraitDir: filepath.Join(cfg.DataDir, portraitDir), Jobs: registry.Names(), MaxAge: jobMaxAge(),
+		News: st, Feeds: feeds,
 	})
 	if err != nil {
 		return fmt.Errorf("build handler: %w", err)

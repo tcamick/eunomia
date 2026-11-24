@@ -85,7 +85,7 @@ One page per person, whatever office they hold:
 - Structured data on candidates is good for federal races and thin below that (§7). State and local races start as a curated file for the owner's own ballot and the governors' races.
 
 ### 6.6 News feed
-- Sources at first: NPR Politics, NPR News and Democracy Now, read from their RSS feeds. *(Proposed)* CalMatters and The Oaklandside for California and Oakland.
+- Sources at first: NPR Politics, NPR News and Democracy Now, read from their RSS feeds. *(Proposed)* CalMatters and The Oaklandside for California and Oakland, *once their terms for feeds are clear (owner, 2026-11-23)*.
 - Each story shows the source, time, headline, the publisher's summary and a link. The source is always labelled, because the feed mixes a public broadcaster with an openly left publication.
 - **Tagging:** a story is linked to the people, states, bills and terms it names, by matching against the roster. Matching is deterministic first (full names, "Sen. Surname" with a state check); a miss is better than a wrong link. A person's page and a state's page show their stories.
 - Filters: source, mine (my representatives and state), state, person, topic. Read and saved marks.
@@ -138,7 +138,7 @@ Each was requested on 2026-11-22 and answered, except where the last column says
 ## 8. Non-functional requirements
 - **Hosting:** neptune, as its own namespace, at `https://eunomia.<tailnet>.ts.net` through the Tailscale operator's Ingress. Nothing listens outside the tailnet.
 - **Access:** the tailnet identity alone; no password. A NetworkPolicy admits the `tailscale` namespace to the server and `monitoring` to the metrics port.
-- **Freshness:** news hourly; roster, committees, votes and bills daily; FEC and state data weekly; the calendar and curated figures checked for staleness weekly. Every page shows when its data was last fetched, and a status page lists each job's last success.
+- **Freshness:** news every 30 minutes (amended 2026-11-23, E2: so a story appears within the hour); roster, committees, votes and bills daily; FEC and state data weekly; the calendar and curated figures checked for staleness weekly. Every page shows when its data was last fetched, and a status page lists each job's last success.
 - **Politeness to sources:** a named User-Agent without personal details, conditional requests (`ETag`, `If-Modified-Since`) for feeds, a pace between requests, and backoff on errors.
 - **Durability:** the SQLite file is backed up nightly to seabass with Plutus's method (`VACUUM INTO`, dated directories). Most of it can be refetched; the news archive, read and saved marks, and visit history cannot.
 - **Observability:** Prometheus metrics with bounded labels; a request counter and duration histogram for every outside source; a PodMonitor and a Grafana dashboard ConfigMap in this repository (beholder README, "Adding an app's metrics"). Batch jobs push their counters to beholder's Pushgateway once at exit (beholder ADR 0002).

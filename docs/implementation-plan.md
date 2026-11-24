@@ -48,7 +48,7 @@ ADRs, one short page each, written in the phase that builds the thing: 0001 Go b
 | Job | From | Runs | What it writes |
 |---|---|---|---|
 | `roster` | E1a | daily | people, terms, leadership roles, committees and members, portraits, changes |
-| `news` | E2 | hourly | stories, mentions |
+| `news` | E2 | every 30 minutes (amended 2026-11-23, E2: two conditional requests an hour per feed keep "within an hour" true) | stories, mentions |
 | `backup` | E2 | daily | a dated copy of the SQLite file and portraits on seabass |
 | `states` | E3b | weekly | governors, state legislators, chamber totals, changes |
 | `stale` | E3b | weekly | a status line for each curated entry past its age |
@@ -62,7 +62,7 @@ ADRs, one short page each, written in the phase that builds the thing: 0001 Go b
 Every job records its outcome in `jobs`, shows on the status page, and has the no-op and idempotency tests.
 
 ### HTTP
-`GET` under `/api/` returns JSON. The only writes are `POST /api/visit` and `PUT`/`DELETE /api/marks/{story}` (E8 adds the card collection). Routes of the web app: `/` (Home from E3a; the Congress page before that) · `/map` · `/states/{code}` · `/people/{id}` · `/congress` · `/committees/{id}` · `/votes` and `/votes/{id}` · `/bills/{id}` · `/government` · `/news` · `/elections`, `/races/{id}`, `/ballot` · `/learn` and `/learn/{slug}` · `/cards` · `/status`. The server answers any extension-less path with the app shell.
+`GET` under `/api/` returns JSON. The only writes are `POST /api/visit` and `PUT /api/stories/{id}/marks` with `{"read": bool, "saved": bool}`, either optional (amended 2026-11-23, E2: one route sets and clears both marks) (E8 adds the card collection). Routes of the web app: `/` (Home from E3a; the Congress page before that) · `/map` · `/states/{code}` · `/people/{id}` · `/congress` · `/committees/{id}` · `/votes` and `/votes/{id}` · `/bills/{id}` · `/government` · `/news` · `/elections`, `/races/{id}`, `/ballot` · `/learn` and `/learn/{slug}` · `/cards` · `/status`. The server answers any extension-less path with the app shell.
 
 ### Schema
 PRD §10 is the model. Tables arrive with the phase that fills them, one migration each. Two rules shape every table: a person and the seats they hold are separate rows, and every row from outside has `source` and `fetched_at` (`docs/go-conventions.md`, Provenance).
@@ -73,7 +73,7 @@ PRD §10 is the model. Tables arrive with the phase that fills them, one migrati
 | E0 | A private GitHub repository `tcamick/eunomia` | github.com (`gh` is not installed on neptune) |
 | E0 | Flux's read-only deploy key and its Secret | the three commands in beholder's README, "Wiring", with `eunomia` for `beholder`; needs `sudo` |
 | E0 | A go-ahead for one change in the Plutus repository | `deploy/k8s/clusters/neptune/eunomia.yaml`, its line in that directory's `kustomization.yaml`, and a grant so `claude-ops` may read and nudge the `eunomia` Flux objects |
-| E2 | A backup directory on seabass | `sudo install -d -o 65532 -g 65532 /srv/seabass/eunomia-backups` |
+| E2 | A backup directory on seabass, with a marker the job checks for | `mountpoint -q /srv/seabass && sudo install -d -o 65532 -g 65532 -m 0770 /srv/seabass/eunomia-backups && sudo install -o 65532 -g 65532 -m 0640 /dev/null /srv/seabass/eunomia-backups/.eunomia-backup-disk` (done 2026-11-23) |
 | E3a | The home districts and local officials | the owner looks up their own address on the official sites and gives the districts; the address itself is never entered here |
 | E4b | An api.data.gov key, stored in Secret Manager, and `tofu apply` for its grant | signing up needs the owner's email, so the owner does it |
 | E7 | How the brief is paid for and how it is sent | decided in ADR 0010 |
@@ -115,7 +115,7 @@ Before the branch: rename the unborn `master` to `main`, and make the root commi
 - **Tests:** every state and district in the roster has a shape, and the reverse (a test over the generated modules); the summary's totals equal the roster's; colour-mode logic for a split delegation, an all-one-party delegation, a vacancy and an at-large state. By hand: Tab order, focus ring, 360 px, both themes, 200% zoom.
 
 ### E2 — News (2 sessions)
-- **`config/sources.yaml`:** each feed's id, name, URL, and a short neutral label of what kind of outlet it is. NPR Politics, NPR News, Democracy Now, CalMatters, The Oaklandside.
+- **`config/sources.yaml`:** each feed's id, name, URL, and a short neutral label of what kind of outlet it is. NPR Politics, NPR News and Democracy Now; CalMatters and The Oaklandside once their terms for feeds are clear (owner, 2026-11-23; NPR's terms allow a personal app to show its feeds, CalMatters' bar automated access without authorisation, The Oaklandside's were not found). Each label is from the outlet's own description, with its source and checked date.
 - **`news` job:** conditional fetch; parse RSS; keep guid, link, title, publication time and a plain-text summary cut to a fixed length. `content:encoded` is never read into a struct, so it cannot be stored. Dedupe by feed and guid, and across feeds by link.
 - **`tagging`** (ADR 0008): a matcher built from the roster. It matches a full name; a title with a surname ("Sen. X", "Rep. X", "Gov. X") when that surname is unique for that title, or when the text also names the member's state; a state by its full name, with a list of ambiguous names (Washington, Georgia, New York as a city) that need more context. Everything else is no tag. Mentions are recomputed for recent stories when the roster changes.
 - **API and pages:** the feed (phone first) with filters by source, state and person, read and saved marks kept on the server; stories on a person's page and a state's page.

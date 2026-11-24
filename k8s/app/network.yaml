@@ -75,7 +75,8 @@ spec:
         - protocol: TCP
           port: 443
 ---
-# The job pods alone may push their gauges to beholder's Pushgateway.
+# The job pods alone may push their gauges to beholder's Pushgateway: the
+# fetching jobs and the backup jobs (backup.yaml), which reach nothing else.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -83,8 +84,12 @@ metadata:
   namespace: eunomia
 spec:
   podSelector:
-    matchLabels:
-      app.kubernetes.io/name: eunomia-job
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - eunomia-job
+          - eunomia-backup
   policyTypes:
     - Egress
   egress:

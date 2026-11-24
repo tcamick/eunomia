@@ -54,7 +54,7 @@ The empty app, built, deployed and monitored the way every later phase will be.
 *What are my sources saying, and about whom?*
 - **Needs from the owner:** the backup directory on seabass.
 - **Done when:**
-  - The feed shows stories from all five sources, each labelled, within an hour or so of publication.
+  - The feed shows stories from all three sources (NPR Politics, NPR News, Democracy Now), each labelled, within an hour or so of publication. *(Amended 2026-11-23, owner: CalMatters and The Oaklandside are added once their terms for feeds are clear.)*
   - A story that names a senator appears on that senator's page and their state's page.
   - Marking a story read on one device shows it read on another.
   - No article body is in the database (a query in the acceptance file shows the longest stored summary).
@@ -155,7 +155,7 @@ Ideas that are not phases yet; each needs the owner's word.
 | E0 | Skeleton and deploy | done, except noop's push (never reached the Pushgateway; its successors' do) | `feat/phase-e0-skeleton` | [phase-e0](acceptance/phase-e0.md) | 2026-11-22 |
 | E1a | Roster and people | done, except the roster's second cluster run (2026-11-24 10:23 UTC) | `feat/phase-e1a-roster` | [phase-e1a](acceptance/phase-e1a.md) | 2026-11-23 |
 | E1b | The map and state pages | merged; keyboard check and the owner's phone pending | `feat/phase-e1b-map` | [phase-e1b](acceptance/phase-e1b.md) | 2026-11-23 |
-| E2 | News | not started | | | |
+| E2 | News | merged; live checks pending: feed freshness, read marks on two devices, 50 first-day mentions, the first seabass backup, the owner's phone and keyboard | `feat/phase-e2-news` | [phase-e2](acceptance/phase-e2.md) | 2026-11-23 |
 | E3a | Home | not started | | | |
 | E3b | The rest of government | not started | | | |
 | E4a | Votes | not started | | | |

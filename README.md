@@ -35,12 +35,18 @@ Every flag has an environment override; a flag beats the environment. Invalid va
 | `-pushgateway-url` | `EUNOMIA_PUSHGATEWAY_URL` | empty | where a job pushes its gauges at exit (beholder ADR 0002); empty pushes nothing |
 | `-legislators-url` | `EUNOMIA_LEGISLATORS_URL` | `https://unitedstates.github.io/congress-legislators/` | the congress-legislators JSON files' directory; https, ending in `/` |
 | `-portraits-url` | `EUNOMIA_PORTRAITS_URL` | `https://unitedstates.github.io/images/congress/225x275/` | the members' portraits' directory; https, ending in `/` |
+| `-backup-dir` | `EUNOMIA_BACKUP_DIR` | empty | the backup disk's directory, holding the marker `.eunomia-backup-disk`; outside `-data-dir`; empty makes `backup` and `restore-check` fail |
 
 ## Jobs
 | Job | What it does | Schedule on neptune |
 |---|---|---|
 | `roster` | reads the `unitedstates/congress-legislators` files (members, committees, committee seats); updates people, terms, leadership and committees, and records each arrival, departure, party switch and leadership change. Rejects a file with fewer than 500 members | daily at 10:23 UTC |
 | `portraits` | mirrors each member's photo from `unitedstates/images` into `data/portraits/`, with conditional requests; a missing photo is recorded as missing | daily at 10:53 UTC |
+| `news` | reads each feed in `config/sources.yaml`, stores new stories (headline, link, a plain-text summary of at most 500 characters; never the article), and tags the last 30 days' stories with the members and states they name (ADR 0008) | every 30 minutes, at :07 and :37 |
+| `backup` | refuses unless the marker is on the backup disk; writes a `VACUUM INTO` copy of the database and the portraits to a dated directory with a manifest; keeps 14 dailies and 8 weeklies | daily at 12:30 UTC |
+| `restore-check` | copies the newest backup's database to scratch space, opens and migrates it as the server would, runs SQLite's integrity check and counts its rows; fails if the newest backup is over two days old, incomplete or has no members | Sundays at 13:30 UTC |
+
+The status page flags a job overdue when it has gone longer than its limit without a success (`jobMaxAge` in `cmd/eunomia/main.go`), so a job whose pod never starts, such as `backup` with the disk unplugged, still shows.
 
 ## Developing
 ```bash

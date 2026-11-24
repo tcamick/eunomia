@@ -68,6 +68,43 @@ func TestStatus_ListsJobs(t *testing.T) {
 	assert.Empty(t, st.JobsError)
 }
 
+// A job that stops succeeding, or never starts (the backup's pod cannot
+// mount a missing disk, so it records nothing), is flagged once it has gone
+// longer than its limit without a success.
+func TestStatus_FlagsAJobOverdue(t *testing.T) {
+	t.Parallel()
+	reg := prometheus.NewRegistry()
+	h, err := New(Options{
+		Store: fakeStatus{jobs: []store.JobStatus{
+			{Name: "news", LastRun: t0.Add(-10 * time.Minute), LastOK: t0.Add(-10 * time.Minute), OK: true},
+			{Name: "roster", LastRun: t0.Add(-time.Hour), LastOK: t0.Add(-50 * time.Hour), OK: false, Message: "boom"},
+			{Name: "portraits", LastRun: t0.Add(-time.Hour), OK: false},
+		}},
+		UI: ui, Version: "v-test", Now: func() time.Time { return t0 }, Log: zerolog.Nop(), Registerer: reg,
+		Jobs:   []string{"backup", "news", "portraits", "roster"},
+		MaxAge: map[string]time.Duration{"backup": 48 * time.Hour, "news": 3 * time.Hour, "roster": 48 * time.Hour, "portraits": 48 * time.Hour},
+	})
+	require.NoError(t, err, "calling New")
+
+	resp := get(t, h, "/api/status")
+	var st Status
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&st), "decoding the status")
+	byName := map[string]JobStatus{}
+	for _, j := range st.Jobs {
+		byName[j.Name] = j
+	}
+	require.Len(t, st.Jobs, 4, "every registered job, including one that never ran")
+	assert.Equal(t, []string{"backup", "news", "portraits", "roster"},
+		[]string{st.Jobs[0].Name, st.Jobs[1].Name, st.Jobs[2].Name, st.Jobs[3].Name}, "by name")
+
+	assert.True(t, byName["backup"].Overdue, "a job that never ran is overdue")
+	assert.True(t, byName["backup"].LastRun.IsZero(), "and has no last run")
+	assert.Equal(t, 48*60, byName["backup"].MaxAgeMinutes, "the page says what the limit is")
+	assert.False(t, byName["news"].Overdue, "a recent success is not")
+	assert.True(t, byName["roster"].Overdue, "a last success older than the limit is")
+	assert.True(t, byName["portraits"].Overdue, "a job that ran but never succeeded is")
+}
+
 func TestStatus_AnUnreadableHistoryIsSaidNotHidden(t *testing.T) {
 	t.Parallel()
 	h, _ := newHandler(t, fakeStatus{err: errors.New("database is locked")})

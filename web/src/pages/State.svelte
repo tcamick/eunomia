@@ -6,6 +6,7 @@
   import PartyMark from '../components/PartyMark.svelte';
   import Portrait from '../components/Portrait.svelte';
   import Sources from '../components/Sources.svelte';
+  import StoryList from '../components/StoryList.svelte';
   import type { Delegation, Member, StateResponse, StateVacancy } from '../lib/api';
   import { calendarDate, ordinal } from '../lib/format';
   import { Load } from '../lib/load.svelte';
@@ -128,6 +129,15 @@
         {/each}
       </ol>
     </div>
+  </section>
+
+  <section aria-labelledby="h-news">
+    <h2 id="h-news">In the news</h2>
+    <p class="muted small">
+      Stories that name {d.state.name} or anyone who sits for it. <a href="/news?state={d.state.code}">See them all</a>
+    </p>
+    <StoryList filter="state={d.state.code}" limit={5} level={3} paged={false}
+      empty="No story from your sources has named {d.state.name} or its members lately." />
   </section>
 
   <Sources sources={d.sources} />

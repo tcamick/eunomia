@@ -4,6 +4,7 @@
   import PartyMark from '../components/PartyMark.svelte';
   import Portrait from '../components/Portrait.svelte';
   import Sources from '../components/Sources.svelte';
+  import StoryList from '../components/StoryList.svelte';
   import type { Person, PersonSeat, PersonTerm, Role } from '../lib/api';
   import { calendarDate, localDate, seatName, todayUTC, year } from '../lib/format';
   import { Load } from '../lib/load.svelte';
@@ -185,6 +186,12 @@
       </ul>
     </section>
   {/if}
+
+  <section aria-labelledby="h-news">
+    <h2 id="h-news">In the news</h2>
+    <p class="all-news"><a href="/news?person={p.id}">Every story naming {p.name}</a></p>
+    <StoryList filter="person={p.id}" limit={5} level={3} paged={false} empty="No story from your sources has named {p.name} lately." />
+  </section>
 
   <Sources sources={p.sources} />
 {/if}

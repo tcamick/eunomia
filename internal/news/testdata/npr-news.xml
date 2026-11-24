@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:npr="https://www.npr.org/rss/" xmlns:nprml="https://api.npr.org/nprml" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/" version="2.0">
+  <channel>
+    <title>NPR Topics: News</title>
+    <link>https://www.npr.org/templates/story/story.php?storyId=1001</link>
+    <description>Breaking news, top national and world stories, politics, business and culture from NPR. Catch up on demand with NPR News Now, Up First and Consider This.</description>
+    <language>en</language>
+    <copyright>Copyright 2024 NPR - For Personal Use Only</copyright>
+    <generator>Story API Shim 1.2.24</generator>
+    <lastBuildDate>Mon, 23 Nov 2026 16:29:32 -0500</lastBuildDate>
+    <image>
+      <url>https://media.npr.org/images/podcasts/primary/npr_generic_image_300.jpg?s=200</url>
+      <title>NPR Topics: News</title>
+      <link>https://www.npr.org/sections/news/</link>
+    </image>
+    <item>
+      <title>Mending relationships over the holidays? Considering a truce? NPR wants to know</title>
+      <description>Has a political or social issue broken down a relationship that was important to you? Can it be repaired? Tell us what&apos;s going on. You might be asked to participate in a possible upcoming segment on All Things Considered.</description>
+      <pubDate>Mon, 23 Nov 2026 15:53:12 -0500</pubDate>
+      <link>https://www.npr.org/2026/11/23/g-s1-155085/holidays-relationships-politics-dispute</link>
+      <guid>https://www.npr.org/2026/11/23/g-s1-155085/holidays-relationships-politics-dispute</guid>
+      <content:encoded><![CDATA[<img src='https://npr.brightspotcdn.com/dims3/default/strip/false/crop/6048x4032+0+0/resize/6048x4032!/quality/85/format/webp/?url=https%3A%2F%2Fnpr-production-npr.s3.us-east-1.amazonaws.com%2Fbrightspot%2F13%2Fb5%2F3ecfcd01404d82f1b31ba1a59fe9%2F2026-05-20t000655z-1509118210-rc2dclalw81k-rtrmadp-3-usa-wildfires.JPG' alt='undefined'/><p>Has a political or social issue broken down a relationship that was important to you? Can it be repaired? Tell us what's going on. You might be asked to participate in a possible upcoming segment on All Things Considered.</p><img src='https://media.npr.org/include/images/tracking/npr-rss-pixel.png?story=g-s1-155085' />]]></content:encoded>
+      <dc:creator>Lauren Hodges</dc:creator>
+    </item>
+<item>
+      <title>&apos;Medicare for all&apos; is back on the drawing board. Does it stand a better chance this time?</title>
+      <description>Several newly elected Democratic U.S. senators campaigned on Medicare for All. Could this be the time it actually gets traction?</description>
+      <pubDate>Mon, 23 Nov 2026 11:00:49 -0500</pubDate>
+      <link>https://www.npr.org/2026/11/23/nx-s1-6047706/health-medicare-for-all-chances</link>
+      <guid>https://www.npr.org/2026/11/23/nx-s1-6047706/health-medicare-for-all-chances</guid>
+      <content:encoded><![CDATA[<img src='https://npr.brightspotcdn.com/dims3/default/strip/false/crop/4006x2441+0+0/resize/4006x2441!/quality/85/format/webp/?url=https%3A%2F%2Fnpr-production-npr.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fa7%2F8c%2Fa11810a84c48b86fa914e92bf68f%2Fgettyimages-2302991445.jpg' alt='Democratic US Senate candidate Abdul El-Sayed smiles onstage after declaring victory in Michigan's US Senate race during an election night party on November 4, 2026. El-Sayed used the slogan, "Money out of politics, money in your pocket, Medicare for all" during his campaign.'/><p>Several newly elected Democratic U.S. senators campaigned on Medicare for All. Could this be the time it actually gets traction?</p><p>(Image credit: Jeff Kowalsky)</p><img src='https://media.npr.org/include/images/tracking/npr-rss-pixel.png?story=nx-s1-6047706' />]]></content:encoded>
+      <dc:creator>Julie Rovner</dc:creator>
+    </item>
+<item>
+      <title>Trump claims credit as Jensen Huang returns to Nvidia</title>
+      <description>President Trump endorsed the announcement, calling it essential for the success of the company and the economy. He added that the government does not see Jensen&apos;s return as a national security risk.</description>
+      <pubDate>Mon, 23 Nov 2026 09:53:41 -0500</pubDate>
+      <link>https://www.npr.org/2026/11/23/nx-s1-6050910/nvidias-jensen-huang-trump</link>
+      <guid>https://www.npr.org/2026/11/23/nx-s1-6050910/nvidias-jensen-huang-trump</guid>
+      <content:encoded><![CDATA[<img src='https://npr.brightspotcdn.com/dims3/default/strip/false/crop/7175x4786+0+0/resize/7175x4786!/quality/85/format/webp/?url=https%3A%2F%2Fnpr-production-npr.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fff%2Fc0%2Fc0c6dafa48c38152975a14812445%2Fgettyimages-2301014104.jpg' alt='Jensen Huang is back atop Nvidia after the chipmaker's board reinstated him as president, chief executive and board director.  "I take this responsibility with the greatest humility and renewed commitment," Huang said in a statement.'/><p>President Trump endorsed the announcement, calling it essential for the success of the company and the economy. He added that the government does not see Jensen's return as a national security risk.</p><p>(Image credit: Nadja Wohlleben/Getty Images)</p><img src='https://media.npr.org/include/images/tracking/npr-rss-pixel.png?story=nx-s1-6050910' />]]></content:encoded>
+      <dc:creator>Shannon Bond</dc:creator>
+    </item>
+  </channel>
+</rss>

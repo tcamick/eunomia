@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -19,12 +21,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tcamick/eunomia/internal/httpapi"
+	"github.com/tcamick/eunomia/internal/news"
 	"github.com/tcamick/eunomia/internal/store"
 )
 
-// tablesDigest hashes every row of every table in the file, read through a
-// connection of its own.
-func tablesDigest(t *testing.T, path string) string {
+// tablesDigest hashes every row of every table in the file but those named
+// in except, read through a connection of its own.
+func tablesDigest(t *testing.T, path string, except ...string) string {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
 	require.NoError(t, err, "opening the file read-only")
@@ -40,6 +43,9 @@ func tablesDigest(t *testing.T, path string) string {
 	require.NoError(t, rows.Close(), "closing the table list")
 	h := sha256.New()
 	for _, table := range tables {
+		if slices.Contains(except, table) {
+			continue
+		}
 		// The names come from sqlite_master, not from outside text.
 		rs, err := db.QueryContext(context.Background(), `SELECT * FROM "`+table+`" ORDER BY 1`) //nolint:gosec // see above
 		require.NoError(t, err, "reading %s", table)
@@ -59,11 +65,11 @@ func tablesDigest(t *testing.T, path string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func TestServer_ServingPagesWritesNothing(t *testing.T) {
+func TestServer_ServingPagesWritesNothingAndAMarkWritesOnlyMarks(t *testing.T) {
 	t.Parallel()
 	// go-conventions, Layout: the server writes only the owner's visits and
-	// reading marks (and migrations at startup). E1a has neither, so serving
-	// every page must leave every table as it was.
+	// reading marks (and migrations at startup). Serving every page must
+	// leave every table as it was, and a mark must change marks alone.
 	path := filepath.Join(t.TempDir(), "eunomia.sqlite")
 	ctx := context.Background()
 	t0 := time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)
@@ -81,19 +87,36 @@ func TestServer_ServingPagesWritesNothing(t *testing.T) {
 		Seats:      []store.Seat{{Committee: "HSXX", Person: "A000001", Side: "majority", Rank: 1, Title: "Chair"}},
 	}), "seeding the roster")
 	require.NoError(t, st.RecordJob(ctx, store.JobResult{Name: "roster", RunAt: t0, OK: true}), "seeding a job run")
+	ids, err := st.AddStories(ctx, "npr-politics", "https://feeds.example/rss", t0,
+		[]store.NewStory{{GUID: "g", URL: "https://news.example/a", Title: "Ann Able votes", Summary: "In Ohio.", Published: t0}})
+	require.NoError(t, err, "seeding a story")
+	_, err = st.ReplaceMentions(ctx, map[int64][]store.Mention{ids[0]: {{Kind: "person", Ref: "A000001"}}}, nil)
+	require.NoError(t, err, "seeding a mention")
 
 	h, err := httpapi.New(httpapi.Options{Store: st, Roster: st, UI: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},
 		Version: "v-test", Now: func() time.Time { return t0 }, Log: zerolog.Nop(), Registerer: prometheus.NewRegistry(),
-		PortraitDir: t.TempDir(), Jobs: []string{"roster"}})
+		PortraitDir: t.TempDir(), Jobs: []string{"roster"}, News: st,
+		Feeds: []news.Feed{{ID: "npr-politics", Name: "NPR Politics", URL: "https://feeds.example/rss", Label: "L"}}})
 	require.NoError(t, err, "building the server")
 
 	before := tablesDigest(t, path)
 	for _, p := range []string{"/api/status", "/api/congress", "/api/members", "/api/people/A000001", "/api/committees",
 		"/api/committees/HSXX", "/api/search?q=able", "/api/people/Z999999", "/portraits/A000001.jpg", "/", "/members",
-		"/api/states", "/api/states/OH", "/api/states/DC", "/map", "/states/OH"} {
+		"/api/states", "/api/states/OH", "/api/states/DC", "/map", "/states/OH",
+		"/api/stories", "/api/stories?state=OH", "/api/stories?person=A000001", "/news"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequestWithContext(ctx, http.MethodGet, p, nil))
 		assert.Less(t, rec.Code, http.StatusInternalServerError, "GET %s", p)
 	}
 	assert.Equal(t, before, tablesDigest(t, path), "no table changed while serving pages")
+
+	beforeExceptMarks := tablesDigest(t, path, "marks")
+	req := httptest.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("/api/stories/%d/marks", ids[0]),
+		strings.NewReader(`{"read":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, "marking a story read")
+	assert.NotEqual(t, before, tablesDigest(t, path), "the mark is written")
+	assert.Equal(t, beforeExceptMarks, tablesDigest(t, path, "marks"), "and no other table changed")
 }

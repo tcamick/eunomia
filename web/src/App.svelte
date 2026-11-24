@@ -3,6 +3,7 @@
   import Committees from './pages/Committees.svelte';
   import Congress from './pages/Congress.svelte';
   import MapPage from './pages/Map.svelte';
+  import News from './pages/News.svelte';
   import State from './pages/State.svelte';
   import Members from './pages/Members.svelte';
   import NotFound from './pages/NotFound.svelte';
@@ -17,6 +18,7 @@
   // the page and starts its request afresh.
   const pages = {
     congress: Congress,
+    news: News,
     map: MapPage,
     state: State,
     members: Members,
@@ -30,6 +32,7 @@
 
   const sections: { href: string; label: string; names: Route['name'][] }[] = [
     { href: '/', label: 'Congress', names: ['congress'] },
+    { href: '/news', label: 'News', names: ['news'] },
     { href: '/map', label: 'Map', names: ['map', 'state'] },
     { href: '/members', label: 'Members', names: ['members', 'person'] },
     { href: '/committees', label: 'Committees', names: ['committees', 'committee'] },

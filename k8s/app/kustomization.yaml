@@ -8,6 +8,7 @@ resources:
   - storage.yaml
   - server.yaml
   - jobs.yaml
+  - backup.yaml
   - network.yaml
   - ingress.yaml
   - claude-ops.yaml

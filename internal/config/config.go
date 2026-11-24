@@ -37,6 +37,10 @@ type Config struct {
 	// URL is a flag). Both are https and end in "/".
 	LegislatorsURL string
 	PortraitsURL   string
+	// BackupDir is where the backup job writes and the restore check reads:
+	// on neptune, a directory on the external disk seabass. Empty (a
+	// laptop) makes both jobs fail rather than guess.
+	BackupDir string
 }
 
 // Environment variables that override each flag's default.
@@ -49,6 +53,7 @@ const (
 	EnvPushgatewayURL = "EUNOMIA_PUSHGATEWAY_URL"
 	EnvLegislatorsURL = "EUNOMIA_LEGISLATORS_URL"
 	EnvPortraitsURL   = "EUNOMIA_PORTRAITS_URL"
+	EnvBackupDir      = "EUNOMIA_BACKUP_DIR"
 )
 
 // The sources' published directories, the URL flags' defaults.
@@ -84,6 +89,8 @@ func Bind(fs *flag.FlagSet, getenv func(string) string) *Config {
 		"https directory of the congress-legislators JSON files, ending in / (env "+EnvLegislatorsURL+")")
 	fs.StringVar(&c.PortraitsURL, "portraits-url", def(EnvPortraitsURL, DefaultPortraitsURL),
 		"https directory of the members' portraits, ending in / (env "+EnvPortraitsURL+")")
+	fs.StringVar(&c.BackupDir, "backup-dir", def(EnvBackupDir, ""),
+		"directory on the backup disk, outside -data-dir; empty makes the backup jobs fail (env "+EnvBackupDir+")")
 	return c
 }
 
@@ -129,7 +136,26 @@ func (c *Config) Validate(cwd string) error {
 			errs = append(errs, fmt.Errorf("%s: %q is not an https URL with a host and a path ending in /", src.flag, src.val))
 		}
 	}
+	if err := c.resolveBackupDir(cwd); err != nil {
+		errs = append(errs, err)
+	}
 	return errors.Join(errs...)
+}
+
+// resolveBackupDir makes a set BackupDir absolute and refuses one inside
+// DataDir: a backup on the same disk is not a backup.
+func (c *Config) resolveBackupDir(cwd string) error {
+	if c.BackupDir == "" {
+		return nil
+	}
+	if !filepath.IsAbs(c.BackupDir) {
+		c.BackupDir = filepath.Join(cwd, c.BackupDir)
+	}
+	rel, err := filepath.Rel(c.DataDir, c.BackupDir)
+	if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("-backup-dir: %q is inside -data-dir; a backup on the same disk is not a backup", c.BackupDir)
+	}
+	return nil
 }
 
 // sameAddr reports whether two listen addresses would bind the same port: the

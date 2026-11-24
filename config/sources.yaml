@@ -1,0 +1,40 @@
+# The news feeds the `news` job reads (PRD §6.6; docs/implementation-plan.md,
+# E2). Validated at startup and by a test (internal/news).
+#
+# Each feed:
+#   id       a short slug: the metric label and the stored feed id; never change one
+#   name     the source's name as the feed page shows it
+#   url      the RSS feed, https
+#   site     the source's own host: a story link there that is http is
+#            upgraded to https (the site serves https); any other http
+#            link is not stored
+#   label    a short, neutral line on what kind of outlet it is, taken from
+#            the outlet's own description, shown beside every story
+#   source   where the label comes from
+#   checked  when the label and the feed's terms were checked
+#
+# CalMatters and The Oaklandside are planned but not listed: their terms of
+# use for feeds were unclear on 2026-11-23, and the owner chose to add them
+# once they are (docs/acceptance/phase-e2.md).
+feeds:
+  - id: npr-politics
+    name: NPR Politics
+    url: https://feeds.npr.org/1014/rss.xml
+    site: www.npr.org
+    label: Public radio network
+    source: https://www.npr.org/about
+    checked: 2026-11-23
+  - id: npr-news
+    name: NPR News
+    url: https://feeds.npr.org/1001/rss.xml
+    site: www.npr.org
+    label: Public radio network
+    source: https://www.npr.org/about
+    checked: 2026-11-23
+  - id: democracy-now
+    name: Democracy Now!
+    url: https://www.democracynow.org/democracynow.rss
+    site: www.democracynow.org
+    label: Independent nonprofit daily news program
+    source: https://www.democracynow.org/about
+    checked: 2026-11-23

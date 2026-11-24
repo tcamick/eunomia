@@ -62,7 +62,7 @@ Requests to outside services carry a generic client name (`eunomia/<version>`) a
 
 ## Operating on neptune (no root)
 Eunomia runs on neptune (k3s and Flux; monitoring from `~/git/beholder`). A session on neptune has no root and no passwordless sudo. These are the owner's standing decisions from Plutus (2026-11-18), which apply here unchanged:
-- **Cluster:** `kubectl --kubeconfig ~/.kube/neptune.yaml -n eunomia …`, the `claude-ops` account. Read-only in this namespace once `k8s/app/claude-ops.yaml` is applied (phase E0): pods, logs, events, jobs, cronjobs, deployments, volumes. No secrets. Always pass `--kubeconfig`; `~/.kube/config` is an unrelated old cluster.
+- **Cluster:** `kubectl --kubeconfig ~/.kube/neptune.yaml -n eunomia …`, the `claude-ops` account. In this namespace (`k8s/app/claude-ops.yaml`): reads pods, logs, events, jobs, cronjobs, deployments, volumes, and may create Jobs, to run a CronJob now (`kubectl create job --from=cronjob/<name>`; owner, 2026-11-23). No secrets, and no other writes. Always pass `--kubeconfig`; `~/.kube/config` is an unrelated old cluster.
 - **Docker:** `cole` is in the `docker` group, which is root-equivalent. Use it only to build and push images and to run the checks in the build container. Never mount host paths, never `--privileged`, never `docker exec` into k3s.
 - **The Flux wiring for this repository lives in Plutus** (`~/git/plutus/deploy/k8s/clusters/neptune/eunomia.yaml`) until the cluster has its own repository. A change there follows Plutus's workflow, in a Plutus worktree, with the owner's go-ahead.
 - Anything needing root (a directory on seabass, a Secret in `flux-system`) goes to the owner as a `sudo …` command to run.

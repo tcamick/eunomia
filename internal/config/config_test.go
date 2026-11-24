@@ -32,6 +32,24 @@ func TestValidate_DefaultsAreValid(t *testing.T) {
 	assert.Equal(t, "https://unitedstates.github.io/images/congress/225x275/", c.PortraitsURL, "the portraits' published directory")
 }
 
+func TestValidate_BackupDir(t *testing.T) {
+	t.Parallel()
+	c := parse(t, nil)
+	require.NoError(t, c.Validate("/work"), "no backup directory is valid: the backup jobs refuse to run")
+	assert.Empty(t, c.BackupDir, "none by default")
+
+	c = parse(t, map[string]string{EnvBackupDir: "backups"})
+	require.NoError(t, c.Validate("/work"), "a relative backup directory")
+	assert.Equal(t, "/work/backups", c.BackupDir, "resolves against cwd")
+
+	for _, dir := range []string{"/work/data", "/work/data/backups"} {
+		c = parse(t, nil, "-backup-dir="+dir)
+		err := c.Validate("/work")
+		require.Error(t, err, "a backup directory of %s", dir)
+		assert.Contains(t, err.Error(), "-backup-dir:", "names the flag")
+	}
+}
+
 func TestBind_EnvironmentOverridesDefaultsAndFlagsOverrideEnvironment(t *testing.T) {
 	t.Parallel()
 	env := map[string]string{EnvListen: "0.0.0.0:9000", EnvLogLevel: "debug"}

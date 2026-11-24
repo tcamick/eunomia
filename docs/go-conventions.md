@@ -59,7 +59,7 @@ Makefile, .golangci.yml, go.mod, go.sum, Dockerfile
 
 ## Testing
 - **Every behaviour change ships with a test that fails without it.** A bug fix gets a regression test named for the bug.
-- **Unit tests are hermetic:** no network, no real clock, no filesystem beyond `t.TempDir()`. Sources are behind interfaces with small hand-written fakes that record what they were asked. No mock generators.
+- **Unit tests are hermetic:** no network, no real clock, no filesystem beyond `t.TempDir()`, `testdata/` and, read only, the repository's own files a test checks (the CronJob manifests, amended 2026-11-23, E2). Sources are behind interfaces with small hand-written fakes that record what they were asked. No mock generators.
 - **Fixtures are real responses, trimmed.** Saved under the package's `testdata/` with a comment or README line saying where and when each was fetched. Public records only.
 - **Table-driven, map-keyed cases with `t.Run`** (`tests := map[string]struct{…}`); case names read as sentences (`"a member who left keeps their past term"`).
 - **Names describe behaviour:** `TestRoster_SecondRunWithSameFileWritesNothing`, `TestTagging_SurnameAloneDoesNotMatch`, not `TestRoster2`.

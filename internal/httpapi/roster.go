@@ -395,7 +395,9 @@ func (a *api) portraitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // fail logs an unexpected error once and answers 500 without its text.
-func (a *api) fail(w http.ResponseWriter, r *http.Request, err error) {
+func (a *api) fail(w http.ResponseWriter, r *http.Request, err error) { failRequest(w, r, err) }
+
+func failRequest(w http.ResponseWriter, r *http.Request, err error) {
 	zerolog.Ctx(r.Context()).Error().Err(err).Msg("Could not serve request")
 	http.Error(w, "internal error", http.StatusInternalServerError)
 }

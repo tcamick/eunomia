@@ -7,8 +7,9 @@ Rules for the manifests Flux applies on neptune. Adapted on 2026-11-22 from the 
 k8s/app/kustomization.yaml     what Flux applies first (path ./k8s/app); the image's digest is pinned here
 k8s/app/namespace.yaml         eunomia, Restricted, labelled for the Pushgateway
 k8s/app/server.yaml            Deployment, Service, ServiceAccount
-k8s/app/jobs.yaml              one CronJob per job
-k8s/app/storage.yaml           the data volume; from E2 the backup volume on seabass
+k8s/app/jobs.yaml              one CronJob per fetching job
+k8s/app/storage.yaml           the data volume
+k8s/app/backup.yaml            from E2: the backup volume on seabass, its claim, and the backup and restore-check CronJobs, together as in Plutus (amended 2026-11-23, E2)
 k8s/app/network.yaml           NetworkPolicy, in and out
 k8s/app/ingress.yaml           Tailscale Ingress: https://eunomia.<tailnet>.ts.net
 k8s/app/claude-ops.yaml        Role for the claude-ops account: read, and create Jobs
